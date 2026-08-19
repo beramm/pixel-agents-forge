@@ -25,6 +25,49 @@
 
 <br/>
 
+> ### ⚒ This is a fork
+>
+> `pixel-agents-forge` is a fork of [pixel-agents-hq/pixel-agents](https://github.com/pixel-agents-hq/pixel-agents) (MIT).
+> It reskins the office as a blacksmith **forge and tavern**: agents are smiths at the anvil, a **Work Orders**
+> board tracks who is hammering what, and the villagers heckle them between rounds at the bar.
+> Badges, marketplace links, and the npm package above point at upstream, not at this fork.
+
+## Quick start
+
+```bash
+git clone https://github.com/beramm/pixel-agents-forge.git && cd pixel-agents-forge && npm install && npm run build && node dist/cli.js --port 3100
+```
+
+Then open <http://127.0.0.1:3100>. Day-to-day commands:
+
+```bash
+npm run build                  # full build (protocol codegen, types, lint, esbuild, vite)
+node dist/cli.js --port 3100   # run the standalone forge
+npm run watch                  # esbuild + tsc watch (VS Code extension development)
+npm test                       # server + webview unit tests
+npm run e2e                    # Playwright suite
+```
+
+### Keyboard shortcuts
+
+| Key                 | Where         | Action                                       |
+| ------------------- | ------------- | -------------------------------------------- |
+| `R`                 | Layout editor | Rotate the ghost / selected furniture        |
+| `T`                 | Layout editor | Toggle furniture on/off state                |
+| `Ctrl+Z` / `Ctrl+Y` | Layout editor | Undo / redo (50 levels)                      |
+| `Esc`               | Layout editor | Step back out: pick → catalog → tab → editor |
+| Middle-drag         | Anywhere      | Pan the camera                               |
+| `Ctrl+C`            | Standalone    | Stop the server, leaving other surfaces up   |
+
+### Fork-specific settings
+
+Settings modal, on top of upstream's:
+
+- **NPC Chatter** — average seconds between ambient villager speech bubbles; `0` silences them. Smith quips are unaffected.
+- **Idle Smith Timeout** — minutes of inactivity before a smith leaves the Work Orders board and despawns; `0` never removes them. An agent mid-tool, waiting, or awaiting permission is never swept.
+
+---
+
 Pixel Agents turns multi-agent AI systems into something you can actually see and manage. Each agent becomes a character in a pixel art office. They walk around, sit at their desk, and visually reflect what they are doing — typing when writing code, reading when searching files, waiting when it needs your attention.
 
 It ships in **two flavors from the same source tree**:

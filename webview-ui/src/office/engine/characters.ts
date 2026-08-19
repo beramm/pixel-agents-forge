@@ -85,7 +85,20 @@ export function createCharacter(
     matrixEffectSeeds: [],
     inputTokens: 0,
     outputTokens: 0,
+    animPhase: Math.random(),
   };
+}
+
+/**
+ * Hammer/typing cycle position from a shared wall clock plus the character's
+ * own `animPhase`, so smiths swing out of lockstep. `idx` is the 2-frame index
+ * (0 = raised, 1 = strike); `frac` is progress within the current frame (0..1).
+ */
+export function hammerCycle(ch: Character): { idx: number; frac: number } {
+  const phase = ch.animPhase ?? 0;
+  const raw = performance.now() / 1000 / TYPE_FRAME_DURATION_SEC + phase * 2;
+  const base = Math.floor(raw);
+  return { idx: base % 2, frac: raw - base };
 }
 
 export function updateCharacter(
@@ -318,11 +331,18 @@ export function updateCharacter(
 /** Get the correct sprite frame for a character's current state and direction */
 export function getCharacterSprite(ch: Character, sprites: CharacterSprites): SpriteData {
   switch (ch.state) {
-    case CharacterState.TYPE:
+    case CharacterState.TYPE: {
+      // Only agent smiths hammer. NPCs (villagers seated on a chair, bartenders,
+      // etc.) just sit/stand idle — never the hammering animation.
+      if (ch.isNpc) return sprites.walk[ch.dir][1];
+      // Drive the swing from the shared clock + per-character phase so smiths
+      // don't hammer in unison, regardless of when they sat down.
+      const { idx } = hammerCycle(ch);
       if (isReadingTool(ch.currentTool)) {
-        return sprites.reading[ch.dir][ch.frame % 2];
+        return sprites.reading[ch.dir][idx];
       }
-      return sprites.typing[ch.dir][ch.frame % 2];
+      return sprites.typing[ch.dir][idx];
+    }
     case CharacterState.WALK:
       return sprites.walk[ch.dir][ch.frame % 4];
     case CharacterState.IDLE:

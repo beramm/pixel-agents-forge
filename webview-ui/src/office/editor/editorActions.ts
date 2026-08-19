@@ -65,6 +65,34 @@ export function removeFurniture(layout: OfficeLayout, uid: string): OfficeLayout
   return { ...layout, furniture: filtered };
 }
 
+/**
+ * Erase whatever is at (col, row): the Erase tool removes the topmost piece of
+ * furniture covering the tile first (this is what users expect when they "erase"
+ * an anvil/forge); only when no furniture is present does it void the floor tile.
+ * Returns the same layout reference when nothing changed.
+ */
+export function eraseAt(layout: OfficeLayout, col: number, row: number): OfficeLayout {
+  if (col < 0 || col >= layout.cols || row < 0 || row >= layout.rows) return layout;
+  // Topmost (last-drawn) furniture covering this tile wins.
+  for (let i = layout.furniture.length - 1; i >= 0; i--) {
+    const f = layout.furniture[i];
+    const entry = getCatalogEntry(f.type);
+    if (!entry) continue;
+    if (
+      col >= f.col &&
+      col < f.col + entry.footprintW &&
+      row >= f.row &&
+      row < f.row + entry.footprintH
+    ) {
+      return removeFurniture(layout, f.uid);
+    }
+  }
+  // No furniture here — void the floor tile.
+  const idx = row * layout.cols + col;
+  if (layout.tiles[idx] === TileType.VOID) return layout;
+  return paintTile(layout, col, row, TileType.VOID);
+}
+
 /** Move furniture to new position. Returns new layout (immutable). */
 export function moveFurniture(
   layout: OfficeLayout,

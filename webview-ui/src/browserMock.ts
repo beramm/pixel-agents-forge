@@ -25,6 +25,9 @@ import type {
   CatalogEntry,
   CharacterDirectionSprites,
 } from '../../core/src/assets/types.ts';
+import { DEFAULT_AGENT_IDLE_TIMEOUT_MIN } from './constants.js';
+import { readDevSettings, resolveDevLayout } from './devPersistence.js';
+import { DEFAULT_NPC_QUIP_INTERVAL_SEC } from './office/engine/npcQuips.js';
 
 interface MockPayload {
   characters: CharacterDirectionSprites[];
@@ -218,9 +221,15 @@ export async function initBrowserMock(): Promise<void> {
         decodeFurnitureFromPng(base, catalog),
       ]);
 
-  const layout = assetIndex.defaultLayout
-    ? await fetch(`${base}assets/${assetIndex.defaultLayout}`).then((r) => r.json())
+  const bundledLayout = assetIndex.defaultLayout
+    ? ((await fetch(`${base}assets/${assetIndex.defaultLayout}`).then((r) => r.json())) as Record<
+        string,
+        unknown
+      >)
     : null;
+  // Dev has no server to persist to, so a layout edited in the browser lives in
+  // localStorage and survives HMR reloads instead of snapping back to the default.
+  const layout = import.meta.env.DEV ? resolveDevLayout(bundledLayout) : bundledLayout;
 
   // Carpets only have a decoded-JSON endpoint (no PNG fallback / asset-index
   // entry); empty array is fine — the carpet tab just won't render variants.
@@ -282,6 +291,8 @@ export function dispatchMockMessages(): void {
     soundEnabled: false,
     extensionVersion: '1.3.0',
     lastSeenVersion: '1.2',
+    npcQuipIntervalSec: readDevSettings().npcQuipIntervalSec ?? DEFAULT_NPC_QUIP_INTERVAL_SEC,
+    agentIdleTimeoutMin: readDevSettings().agentIdleTimeoutMin ?? DEFAULT_AGENT_IDLE_TIMEOUT_MIN,
   });
 
   console.log('[BrowserMock] Messages dispatched');

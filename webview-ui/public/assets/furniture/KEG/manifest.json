@@ -1,0 +1,11 @@
+{
+  "id": "KEG",
+  "name": "Keg",
+  "category": "storage",
+  "type": "asset",
+  "file": "KEG.png",
+  "width": 16,
+  "height": 18,
+  "footprintW": 1,
+  "footprintH": 1
+}

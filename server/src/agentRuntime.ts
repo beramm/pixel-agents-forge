@@ -14,6 +14,7 @@ import * as path from 'path';
 
 import type { HookProvider } from '../../core/src/provider.js';
 import type { AgentStateStore } from './agentStateStore.js';
+import { AGENT_IDLE_DESTROY_MS } from './constants.js';
 import { DismissalTracker } from './dismissalTracker.js';
 import {
   adoptExternalSessionFromHook,
@@ -32,6 +33,7 @@ import {
 } from './fileWatcher.js';
 import type { HookEvent } from './hookEventHandler.js';
 import { HookEventHandler } from './hookEventHandler.js';
+import { startIdleAgentSweep } from './idleAgentSweep.js';
 import { PathSet } from './pathKey.js';
 import { SessionRouter } from './sessionRouter.js';
 import { cancelPermissionTimer, cancelWaitingTimer } from './timerManager.js';
@@ -62,10 +64,13 @@ export class AgentRuntime {
   readonly activeAgentId = { current: null as number | null };
   private externalScanTimer: ReturnType<typeof setInterval> | null = null;
   private staleCheckTimer: ReturnType<typeof setInterval> | null = null;
+  private idleSweepTimer: ReturnType<typeof setInterval> | null = null;
 
   // Configuration refs (mutable, shared with scanners)
   readonly watchAllSessions = { current: false };
   readonly hooksEnabled = { current: true };
+  /** Idle-sweep threshold in ms. 0 disables the sweep. Mutated by settings. */
+  readonly idleTimeoutMs = { current: AGENT_IDLE_DESTROY_MS };
 
   // Dependencies
   readonly dismissalTracker = new DismissalTracker();
@@ -320,6 +325,22 @@ export class AgentRuntime {
     );
   }
 
+  /**
+   * Start the idle sweep: agents with no activity for AGENT_IDLE_DESTROY_MS are
+   * dismissed and despawned (off the Work Orders board). Runs in both hooks and
+   * heuristic mode, since inactivity is measured from hook events AND JSONL lines.
+   */
+  startIdleSweep(): void {
+    if (this.idleSweepTimer) return;
+
+    this.idleSweepTimer = startIdleAgentSweep(
+      this.store,
+      (id) => this.removeAgent(id),
+      (file) => this.dismissalTracker.dismiss(file),
+      this.idleTimeoutMs,
+    );
+  }
+
   // ── Restore persisted external agents (standalone) ──
 
   /**
@@ -368,6 +389,7 @@ export class AgentRuntime {
         permissionSent: false,
         hadToolsInTurn: false,
         lastDataAt: 0,
+        lastActivityAt: Date.now(),
         linesProcessed: 0,
         seenUnknownRecordTypes: new Set(),
         folderName: p.folderName,
@@ -432,6 +454,10 @@ export class AgentRuntime {
     if (this.staleCheckTimer) {
       clearInterval(this.staleCheckTimer);
       this.staleCheckTimer = null;
+    }
+    if (this.idleSweepTimer) {
+      clearInterval(this.idleSweepTimer);
+      this.idleSweepTimer = null;
     }
 
     for (const id of [...this.store.keys()]) {

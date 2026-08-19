@@ -45,6 +45,31 @@ import {
 } from '../types.js';
 import { createCharacter, updateCharacter } from './characters.js';
 import { matrixEffectSeeds } from './matrixEffect.js';
+import {
+  ACK_VISIBLE_SEC,
+  agentCooldown,
+  bartenderQuipCooldown,
+  barVisitCooldown,
+  DRINK_RATE_PER_SEC,
+  drinkDuration,
+  DRUNK_DECAY_PER_SEC,
+  drunkQuipCooldown,
+  isNpcChatterEnabled,
+  MAX_CONCURRENT_QUIPS,
+  MAX_NPC_QUIPS,
+  musicQuipCooldown,
+  npcCooldown,
+  pickQuip,
+  QUIP_VISIBLE_SEC,
+  quipRetryCooldown,
+  randomAck,
+  randomBartenderQuip,
+  randomCardQuip,
+  randomDrunkQuip,
+  randomMusicQuip,
+  truncateQuip,
+  type WorkContextEntry,
+} from './npcQuips.js';
 import { createPet, updatePet } from './petEntity.js';
 
 /** Internal helper: facing-tile coords for a seat. Returns null for invalid direction. */
@@ -69,6 +94,11 @@ export class OfficeState {
   selectedAgentId: number | null = null;
   cameraFollowId: number | null = null;
   hoveredAgentId: number | null = null;
+  /** Snapshot of working smiths (id/name/task/active), fed by the UI layer so
+   *  NPC + smith quips can reference who is working on what. */
+  workContext: WorkContextEntry[] = [];
+  /** Social sit spots: bar stools (drink) + card-table seats (play cards). */
+  socialTiles: Array<{ col: number; row: number; kind: 'bar' | 'cards'; dir: Direction }> = [];
   hoveredTile: { col: number; row: number } | null = null;
   /** Maps "parentId:toolId" → sub-agent character ID (negative) */
   subagentIdMap: Map<string, number> = new Map();
@@ -94,6 +124,7 @@ export class OfficeState {
     this.blockedTiles = getBlockedTiles(this.layout.furniture);
     this.furniture = layoutToFurnitureInstances(this.layout.furniture);
     this.walkableTiles = getWalkableTiles(this.tileMap, this.blockedTiles);
+    this.socialTiles = this.computeSocialTiles();
     // Pets are built last because they need walkableTiles populated for spawn.
     this.rebuildPetsFromLayout(this.layout);
   }
@@ -107,6 +138,7 @@ export class OfficeState {
     this.blockedTiles = getBlockedTiles(layout.furniture);
     this.rebuildFurnitureInstances();
     this.walkableTiles = getWalkableTiles(this.tileMap, this.blockedTiles);
+    this.socialTiles = this.computeSocialTiles();
 
     // Shift character positions when grid expands left/up
     if (shift && (shift.col !== 0 || shift.row !== 0)) {
@@ -160,7 +192,7 @@ export class OfficeState {
 
     // Second pass: assign remaining characters to free seats
     for (const ch of this.characters.values()) {
-      if (ch.seatId) continue;
+      if (ch.seatId || ch.isNpc) continue; // NPCs never take seats
       const seatId = this.findFreeSeat(ch.folderName);
       if (seatId) {
         this.seats.get(seatId)!.assigned = true;
@@ -397,6 +429,363 @@ export class OfficeState {
     return { palette, hueShift };
   }
 
+  /** Base id range for ambient NPCs (kept far from agent/sub-agent ids). */
+  private static readonly NPC_ID_BASE = 2_000_000;
+  private static readonly NPC_NAMES = [
+    'Apprentice',
+    'Hauler',
+    'Farrier',
+    'Miner',
+    'Merchant',
+    'Stable Hand',
+    'Errand Lad',
+  ];
+
+  /** Update the working-smith snapshot used to flavor quips. */
+  setWorkContext(ctx: WorkContextEntry[]): void {
+    this.workContext = ctx;
+  }
+
+  /** Social sit spots: bar-counter fronts (drink) + card-table sides (cards). */
+  private computeSocialTiles(): Array<{
+    col: number;
+    row: number;
+    kind: 'bar' | 'cards';
+    dir: Direction;
+  }> {
+    const tiles: Array<{ col: number; row: number; kind: 'bar' | 'cards'; dir: Direction }> = [];
+    const seen = new Set<string>();
+    const push = (col: number, row: number, fc: number, fr: number) => {
+      const key = `${col},${row}`;
+      if (seen.has(key)) return;
+      if (!isWalkable(col, row, this.tileMap, this.blockedTiles)) return;
+      seen.add(key);
+      tiles.push({ col, row, kind: 'bar', dir: this.dirToward(col, row, fc, fr) });
+    };
+    // Any walkable tile adjacent to a BAR_COUNTER footprint is a drink spot.
+    // Robust to however the bar is arranged in the (possibly user-edited) layout.
+    for (const item of this.layout.furniture) {
+      if (item.type !== 'BAR_COUNTER') continue;
+      const entry = getCatalogEntry(item.type);
+      const w = entry?.footprintW ?? 3;
+      const h = entry?.footprintH ?? 1;
+      for (let dr = 0; dr < h; dr++) {
+        for (let dc = 0; dc < w; dc++) {
+          const fc = item.col + dc;
+          const fr = item.row + dr;
+          push(fc, fr - 1, fc, fr);
+          push(fc, fr + 1, fc, fr);
+          push(fc - 1, fr, fc, fr);
+          push(fc + 1, fr, fc, fr);
+        }
+      }
+    }
+    return tiles;
+  }
+
+  /** Closest footprint tile of the nearest furniture of `type` within `maxDist`
+   *  (Manhattan), or null. Used to detect "dropped at the bar / card table". */
+  private nearestFurnitureTile(
+    col: number,
+    row: number,
+    type: string,
+    maxDist: number,
+  ): { col: number; row: number } | null {
+    let best: { col: number; row: number } | null = null;
+    let bestD = Infinity;
+    for (const item of this.layout.furniture) {
+      if (item.type !== type) continue;
+      const entry = getCatalogEntry(item.type);
+      const w = entry?.footprintW ?? 1;
+      const h = entry?.footprintH ?? 1;
+      for (let dr = 0; dr < h; dr++) {
+        for (let dc = 0; dc < w; dc++) {
+          const d = Math.abs(item.col + dc - col) + Math.abs(item.row + dr - row);
+          if (d < bestD) {
+            bestD = d;
+            best = { col: item.col + dc, row: item.row + dr };
+          }
+        }
+      }
+    }
+    return bestD <= maxDist ? best : null;
+  }
+
+  /** Cardinal direction from (col,row) toward (tc,tr). */
+  private dirToward(col: number, row: number, tc: number, tr: number): Direction {
+    const dCol = tc - col;
+    const dRow = tr - row;
+    if (Math.abs(dCol) > Math.abs(dRow)) return dCol > 0 ? Direction.RIGHT : Direction.LEFT;
+    return dRow > 0 ? Direction.DOWN : Direction.UP;
+  }
+
+  /**
+   * NPC tavern behavior. Returns true when the NPC is pinned (seated) so the
+   * caller skips the wander FSM. NPCs periodically walk to a free social spot:
+   * a bar stool (drink → get drunk → slur) or a card seat (play cards).
+   */
+  private updateNpcSocial(ch: Character, dt: number): boolean {
+    // Sober up while not drinking.
+    if (ch.barState !== 'drinking' && (ch.drunk ?? 0) > 0) {
+      ch.drunk = Math.max(0, (ch.drunk ?? 0) - dt * DRUNK_DECAY_PER_SEC);
+    }
+
+    if (ch.barState === 'drinking') {
+      // 'drinking' is the generic "seated" state; only the bar makes you drunk.
+      if (ch.socialKind === 'bar')
+        ch.drunk = Math.min(1, (ch.drunk ?? 0) + dt * DRINK_RATE_PER_SEC);
+      ch.barTimer = (ch.barTimer ?? 0) - dt;
+      ch.state = CharacterState.IDLE;
+      ch.path = [];
+      ch.frame = 0;
+      if (ch.barTimer <= 0) {
+        ch.barState = undefined;
+        ch.barTile = null;
+        ch.socialKind = undefined;
+        ch.barTimer = barVisitCooldown();
+        ch.wanderTimer = 0.4;
+      }
+      return true;
+    }
+
+    if (ch.barState === 'heading') {
+      const t = ch.barTile;
+      const arrived = !!t && ch.tileCol === t.col && ch.tileRow === t.row;
+      if (arrived && ch.path.length === 0) {
+        const spot = this.socialTiles.find((s) => s.col === t!.col && s.row === t!.row);
+        ch.barState = 'drinking';
+        ch.socialKind = spot?.kind ?? 'bar';
+        ch.barTimer = drinkDuration();
+        ch.state = CharacterState.IDLE;
+        ch.dir = spot?.dir ?? Direction.UP;
+        return true;
+      }
+      if (ch.path.length === 0 && !arrived) {
+        ch.barState = undefined;
+        ch.barTile = null;
+        ch.barTimer = barVisitCooldown();
+      }
+      return false;
+    }
+
+    // Wandering: occasionally decide to visit a tavern spot.
+    if (this.socialTiles.length === 0) return false;
+    ch.barTimer = (ch.barTimer ?? barVisitCooldown()) - dt;
+    if (ch.barTimer <= 0) {
+      const taken = new Set<string>();
+      for (const o of this.characters.values()) {
+        if (o.barTile) taken.add(`${o.barTile.col},${o.barTile.row}`);
+      }
+      const free = this.socialTiles.filter((t) => !taken.has(`${t.col},${t.row}`));
+      if (free.length > 0) {
+        const target = free[Math.floor(Math.random() * free.length)];
+        const path = findPath(
+          ch.tileCol,
+          ch.tileRow,
+          target.col,
+          target.row,
+          this.tileMap,
+          this.blockedTiles,
+        );
+        if (path.length > 0) {
+          ch.path = path;
+          ch.moveProgress = 0;
+          ch.state = CharacterState.WALK;
+          ch.barState = 'heading';
+          ch.barTile = { col: target.col, row: target.row };
+          ch.socialKind = target.kind;
+          return false;
+        }
+      }
+      ch.barTimer = barVisitCooldown();
+    }
+    return false;
+  }
+
+  /**
+   * Highlight an agent (select + camera-follow) and make them mutter a
+   * blacksmith acknowledgement bubble. Used when a Work Order row is clicked.
+   */
+  sayAck(id: number): void {
+    const ch = this.characters.get(id);
+    if (!ch) return;
+    this.selectedAgentId = id;
+    this.cameraFollowId = id;
+    ch.quip = randomAck();
+    ch.quipTimer = ACK_VISIBLE_SEC;
+    ch.quipSticky = true;
+  }
+
+  /**
+   * Silence the NPC whose ambient quip is closest to expiring, freeing a slot
+   * in the chatter budget for an agent. Sticky (user-triggered) quips are never
+   * evicted. Returns true when one was cleared.
+   */
+  private evictNpcQuip(): boolean {
+    let victim: Character | null = null;
+    for (const ch of this.characters.values()) {
+      if (!ch.quip || !ch.isNpc || ch.quipSticky) continue;
+      if (!victim || (ch.quipTimer ?? 0) < (victim.quipTimer ?? 0)) victim = ch;
+    }
+    if (!victim) return false;
+    victim.quip = null;
+    victim.quipTimer = 0;
+    victim.quipCooldown = quipRetryCooldown();
+    return true;
+  }
+
+  /** True if ambient NPCs have already been spawned. */
+  hasNpcs(): boolean {
+    for (const ch of this.characters.values()) if (ch.isNpc) return true;
+    return false;
+  }
+
+  /**
+   * Spawn `count` ambient villager NPCs that wander the forge. They are not
+   * agents: not selectable, not seated, not persisted. Idempotent.
+   */
+  spawnNpcs(count: number): void {
+    if (this.hasNpcs()) return;
+    if (this.walkableTiles.length === 0) return;
+    const occupied = new Set<string>();
+    for (const ch of this.characters.values()) occupied.add(`${ch.tileCol},${ch.tileRow}`);
+
+    for (let i = 0; i < count; i++) {
+      // Pick a free walkable tile
+      let tile = this.walkableTiles[Math.floor(Math.random() * this.walkableTiles.length)];
+      for (let tries = 0; tries < 12 && occupied.has(`${tile.col},${tile.row}`); tries++) {
+        tile = this.walkableTiles[Math.floor(Math.random() * this.walkableTiles.length)];
+      }
+      occupied.add(`${tile.col},${tile.row}`);
+
+      const id = OfficeState.NPC_ID_BASE + i;
+      const { palette, hueShift } = this.pickDiversePalette();
+      const ch = createCharacter(id, palette, null, null, hueShift);
+      ch.isNpc = true;
+      ch.npcName = OfficeState.NPC_NAMES[i % OfficeState.NPC_NAMES.length];
+      ch.isActive = false; // seatless + inactive => wanders
+      ch.state = CharacterState.IDLE;
+      ch.dir = Direction.DOWN;
+      ch.tileCol = tile.col;
+      ch.tileRow = tile.row;
+      ch.x = tile.col * TILE_SIZE + TILE_SIZE / 2;
+      ch.y = tile.row * TILE_SIZE + TILE_SIZE / 2;
+      ch.wanderTimer = Math.random() * 3;
+      ch.quip = null;
+      ch.quipCooldown = 2 + Math.random() * 6; // first quip after a short beat
+      ch.matrixEffect = 'spawn';
+      ch.matrixEffectTimer = 0;
+      ch.matrixEffectSeeds = matrixEffectSeeds();
+      this.characters.set(id, ch);
+    }
+
+    this.spawnBartenders();
+    this.spawnMusicians();
+    this.spawnCardCrowd();
+  }
+
+  /** A permanent crowd of card players seated around each CARD_TABLE. */
+  private spawnCardCrowd(): void {
+    let n = 0;
+    for (const item of this.layout.furniture) {
+      if (item.type !== 'CARD_TABLE') continue;
+      const entry = getCatalogEntry(item.type);
+      const w = entry?.footprintW ?? 2;
+      const seats: Array<{ c: number; r: number; dir: Direction }> = [
+        { c: item.col - 1, r: item.row, dir: Direction.RIGHT },
+        { c: item.col + w, r: item.row, dir: Direction.LEFT },
+        { c: item.col, r: item.row - 1, dir: Direction.DOWN },
+        { c: item.col + w - 1, r: item.row + 1, dir: Direction.UP },
+      ];
+      for (const s of seats) {
+        if (!isWalkable(s.c, s.r, this.tileMap, this.blockedTiles)) continue;
+        const id = OfficeState.NPC_ID_BASE + 300 + n;
+        n++;
+        const { palette, hueShift } = this.pickDiversePalette();
+        const ch = createCharacter(id, palette, null, null, hueShift);
+        ch.isNpc = true;
+        ch.isCardPlayer = true;
+        ch.socialKind = 'cards';
+        ch.npcName = 'Gambler';
+        ch.isActive = false;
+        ch.state = CharacterState.IDLE;
+        ch.dir = s.dir;
+        ch.tileCol = s.c;
+        ch.tileRow = s.r;
+        ch.x = s.c * TILE_SIZE + TILE_SIZE / 2;
+        ch.y = s.r * TILE_SIZE + TILE_SIZE / 2;
+        ch.quipCooldown = 1 + Math.random() * 5;
+        ch.matrixEffect = 'spawn';
+        ch.matrixEffectTimer = 0;
+        ch.matrixEffectSeeds = matrixEffectSeeds();
+        this.characters.set(id, ch);
+      }
+    }
+  }
+
+  /** A musician NPC beside each band instrument (DRUM/LUTE), always playing. */
+  private spawnMusicians(): void {
+    let n = 0;
+    for (const item of this.layout.furniture) {
+      if (item.type !== 'DRUM' && item.type !== 'LUTE') continue;
+      const col = item.col;
+      const row = item.row - 1; // stand just above the instrument, facing down
+      if (row < 0) continue;
+      const id = OfficeState.NPC_ID_BASE + 200 + n;
+      n++;
+      const { palette, hueShift } = this.pickDiversePalette();
+      const ch = createCharacter(id, palette, null, null, hueShift);
+      ch.isNpc = true;
+      ch.isMusician = true;
+      ch.npcName = 'Bard';
+      ch.isActive = false;
+      ch.state = CharacterState.IDLE;
+      ch.currentTool = null;
+      ch.dir = Direction.DOWN;
+      ch.tileCol = col;
+      ch.tileRow = row;
+      ch.x = col * TILE_SIZE + TILE_SIZE / 2;
+      ch.y = row * TILE_SIZE + TILE_SIZE / 2;
+      ch.quipCooldown = 1 + Math.random() * 3;
+      ch.matrixEffect = 'spawn';
+      ch.matrixEffectTimer = 0;
+      ch.matrixEffectSeeds = matrixEffectSeeds();
+      this.characters.set(id, ch);
+    }
+  }
+
+  /** One always-busy bartender behind each BAR_COUNTER, facing the customers. */
+  private spawnBartenders(): void {
+    let n = 0;
+    for (const item of this.layout.furniture) {
+      if (item.type !== 'BAR_COUNTER') continue;
+      const entry = getCatalogEntry(item.type);
+      const w = entry?.footprintW ?? 3;
+      const col = item.col + Math.floor(w / 2);
+      const row = item.row - 1; // behind the counter
+      if (row < 0) continue;
+      const id = OfficeState.NPC_ID_BASE + 100 + n;
+      n++;
+      const { palette, hueShift } = this.pickDiversePalette();
+      const ch = createCharacter(id, palette, null, null, hueShift);
+      ch.isNpc = true;
+      ch.isBartender = true;
+      ch.npcName = 'Barkeep';
+      ch.isActive = false;
+      ch.state = CharacterState.IDLE; // stand + serve (mug drawn in renderer)
+      ch.dir = Direction.DOWN;
+      ch.tileCol = col;
+      ch.tileRow = row;
+      ch.x = col * TILE_SIZE + TILE_SIZE / 2;
+      ch.y = row * TILE_SIZE + TILE_SIZE / 2;
+      ch.quipCooldown = 2 + Math.random() * 4;
+      ch.matrixEffect = 'spawn';
+      ch.matrixEffectTimer = 0;
+      ch.matrixEffectSeeds = matrixEffectSeeds();
+      this.characters.set(id, ch);
+    }
+  }
+
   addAgent(
     id: number,
     preferredPalette?: number,
@@ -566,6 +955,13 @@ export class OfficeState {
     ch.state = CharacterState.WALK;
     ch.frame = 0;
     ch.frameTimer = 0;
+    // Moving an NPC pulls it off its post/seat and suspends its AI until it arrives.
+    if (ch.isNpc) {
+      ch.manualMove = true;
+      ch.barState = undefined;
+      ch.barTile = null;
+      ch.socialKind = undefined;
+    }
     return true;
   }
 
@@ -811,6 +1207,16 @@ export class OfficeState {
   }
 
   /** Dismiss bubble on click — permission: instant, waiting: quick fade */
+  /** Clear a character's quip bubble (X button) and briefly silence it. */
+  dismissQuip(id: number): void {
+    const ch = this.characters.get(id);
+    if (!ch) return;
+    ch.quip = null;
+    ch.quipTimer = 0;
+    ch.quipSticky = false;
+    ch.quipCooldown = 6 + Math.random() * 8;
+  }
+
   dismissBubble(id: number): void {
     const ch = this.characters.get(id);
     if (!ch || !ch.bubbleType) return;
@@ -982,6 +1388,18 @@ export class OfficeState {
       this.rebuildFurnitureInstances();
     }
 
+    // Global chatter budget — see the quip block below. Counted once per frame,
+    // then kept in sync as quips are granted during this pass.
+    let activeQuips = 0;
+    let activeNpcQuips = 0;
+    let activeAgentQuips = 0;
+    for (const ch of this.characters.values()) {
+      if (!ch.quip) continue;
+      activeQuips++;
+      if (ch.isNpc) activeNpcQuips++;
+      else activeAgentQuips++;
+    }
+
     const toDelete: number[] = [];
     for (const ch of this.characters.values()) {
       // Handle matrix effect animation
@@ -1001,10 +1419,42 @@ export class OfficeState {
         continue; // skip normal FSM while effect is active
       }
 
+      // Bartenders stay put behind the bar, always busy. Other NPCs may head to
+      // the tavern to drink (seated drinking pins them). Both skip the wander FSM.
+      let pinned = false;
+      if (ch.isNpc && ch.manualMove) {
+        // User is walking this NPC — let it follow the path, resume role on arrival.
+        if (ch.path.length === 0) {
+          ch.manualMove = false;
+          // Dropped next to a bar or card table? Sit and drink/play in place,
+          // facing the furniture. Works regardless of the exact seat geometry.
+          const bar = this.nearestFurnitureTile(ch.tileCol, ch.tileRow, 'BAR_COUNTER', 2);
+          const cards = this.nearestFurnitureTile(ch.tileCol, ch.tileRow, 'CARD_TABLE', 2);
+          const target = bar ?? cards;
+          if (target) {
+            ch.barState = 'drinking';
+            ch.socialKind = bar ? 'bar' : 'cards';
+            ch.barTile = { col: ch.tileCol, row: ch.tileRow };
+            ch.barTimer = drinkDuration();
+            ch.dir = this.dirToward(ch.tileCol, ch.tileRow, target.col, target.row);
+            ch.state = CharacterState.IDLE;
+          }
+        }
+      } else if (ch.isBartender || ch.isMusician || ch.isCardPlayer) {
+        ch.isActive = false; // static idle pose; props are drawn by the renderer
+        ch.state = CharacterState.IDLE;
+        ch.path = [];
+        pinned = true;
+      } else if (ch.isNpc) {
+        pinned = this.updateNpcSocial(ch, dt);
+      }
+
       // Temporarily unblock own seat so character can pathfind to it
-      this.withOwnSeatUnblocked(ch, () =>
-        updateCharacter(ch, dt, this.walkableTiles, this.seats, this.tileMap, this.blockedTiles),
-      );
+      if (!pinned) {
+        this.withOwnSeatUnblocked(ch, () =>
+          updateCharacter(ch, dt, this.walkableTiles, this.seats, this.tileMap, this.blockedTiles),
+        );
+      }
 
       // Tick bubble timer for waiting bubbles
       if (ch.bubbleType === 'waiting') {
@@ -1012,6 +1462,75 @@ export class OfficeState {
         if (ch.bubbleTimer <= 0) {
           ch.bubbleType = null;
           ch.bubbleTimer = 0;
+        }
+      }
+
+      // Quip speech bubbles. Drinking NPCs slur drunk nonsense; other NPCs
+      // heckle; smiths mumble about their own task. Sub-agents are skipped.
+      // NPC chatter is user-configurable and can be switched off entirely;
+      // agent (smith) quips carry real work status and are never gated by it.
+      const canAutoQuip =
+        (ch.isNpc || !ch.isSubagent) && !ch.isMusician && (!ch.isNpc || isNpcChatterEnabled()); // band is silent
+      const seated = ch.barState === 'drinking';
+      const drinking = seated && ch.socialKind === 'bar';
+      const playingCards = seated && ch.socialKind === 'cards';
+      const bartender = !!ch.isBartender;
+      const musician = !!ch.isMusician;
+      const nextCd = () =>
+        bartender
+          ? bartenderQuipCooldown()
+          : musician
+            ? musicQuipCooldown()
+            : drinking
+              ? drunkQuipCooldown()
+              : ch.isNpc
+                ? npcCooldown()
+                : agentCooldown();
+      const pickAutoQuip = () =>
+        bartender
+          ? randomBartenderQuip()
+          : musician
+            ? randomMusicQuip()
+            : playingCards
+              ? randomCardQuip()
+              : drinking
+                ? randomDrunkQuip()
+                : pickQuip(!!ch.isNpc, this.workContext, ch.id);
+      if (ch.quip) {
+        ch.quipTimer = (ch.quipTimer ?? 0) - dt;
+        if (ch.quipTimer <= 0) {
+          ch.quip = null;
+          ch.quipTimer = 0;
+          ch.quipSticky = false;
+          ch.quipCooldown = nextCd();
+          activeQuips--;
+          if (ch.isNpc) activeNpcQuips--;
+          else activeAgentQuips--;
+        }
+      } else if (canAutoQuip) {
+        ch.quipCooldown = (ch.quipCooldown ?? nextCd()) - dt;
+        if (ch.quipCooldown <= 0) {
+          // Budget gate. Agents carry real work status, so they outrank NPC
+          // flavor: an NPC only speaks when no agent is speaking, and an agent
+          // may evict a chattering NPC to claim a slot.
+          const isNpcSpeaker = !!ch.isNpc;
+          let hasSlot =
+            activeQuips < MAX_CONCURRENT_QUIPS &&
+            (!isNpcSpeaker || (activeAgentQuips === 0 && activeNpcQuips < MAX_NPC_QUIPS));
+          if (!hasSlot && !isNpcSpeaker && activeNpcQuips > 0 && this.evictNpcQuip()) {
+            activeQuips--;
+            activeNpcQuips--;
+            hasSlot = true;
+          }
+          if (hasSlot) {
+            ch.quip = truncateQuip(pickAutoQuip());
+            ch.quipTimer = QUIP_VISIBLE_SEC;
+            activeQuips++;
+            if (isNpcSpeaker) activeNpcQuips++;
+            else activeAgentQuips++;
+          } else {
+            ch.quipCooldown = quipRetryCooldown();
+          }
         }
       }
     }

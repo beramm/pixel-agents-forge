@@ -1,4 +1,5 @@
-import type { ServerMessage } from '../../../core/src/messages.js';
+import type { ClientMessage, ServerMessage } from '../../../core/src/messages.js';
+import { patchDevSettings, writeDevLayout } from '../devPersistence.js';
 import { isBrowserRuntime } from '../runtime.js';
 import { PostMessageTransport } from './postMessageTransport.js';
 import type { MessageTransport } from './types.js';
@@ -18,6 +19,19 @@ function createTransport(): MessageTransport {
   // (the WebSocket never opens against the dev server). Guarded by DEV so it's
   // tree-shaken out of the production standalone build.
   if (import.meta.env.DEV) {
+    // No server in Vite dev: persist the state the server would have owned so a
+    // code edit (HMR full-reload) doesn't wipe the layout or the NPC settings.
+    const rawSend = ws.send.bind(ws);
+    ws.send = (msg: ClientMessage): void => {
+      if (msg.type === 'saveLayout' && msg.layout) {
+        writeDevLayout(msg.layout as Record<string, unknown>);
+      } else if (msg.type === 'setNpcQuipInterval') {
+        patchDevSettings({ npcQuipIntervalSec: msg.seconds });
+      } else if (msg.type === 'setAgentIdleTimeout') {
+        patchDevSettings({ agentIdleTimeoutMin: msg.minutes });
+      }
+      rawSend(msg);
+    };
     window.addEventListener('message', (e: MessageEvent) => {
       const data = e.data as unknown;
       if (

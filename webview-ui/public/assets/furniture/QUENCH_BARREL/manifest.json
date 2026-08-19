@@ -1,0 +1,11 @@
+{
+  "id": "QUENCH_BARREL",
+  "name": "Quench Barrel",
+  "category": "storage",
+  "type": "asset",
+  "file": "QUENCH_BARREL.png",
+  "width": 16,
+  "height": 26,
+  "footprintW": 1,
+  "footprintH": 2
+}

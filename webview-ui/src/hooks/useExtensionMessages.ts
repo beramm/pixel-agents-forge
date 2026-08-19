@@ -1,6 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { DEFAULT_AGENT_IDLE_TIMEOUT_MIN } from '../constants.js';
 import { playDoneSound, playPermissionSound, setSoundEnabled } from '../notificationSound.js';
+import {
+  DEFAULT_NPC_QUIP_INTERVAL_SEC,
+  setNpcQuipIntervalSec as setNpcQuipIntervalSecEngine,
+} from '../office/engine/npcQuips.js';
 import type { OfficeState } from '../office/engine/officeState.js';
 import { setFloorSprites } from '../office/floorTiles.js';
 import { buildDynamicCatalog } from '../office/layout/furnitureCatalog.js';
@@ -80,6 +85,12 @@ interface ExtensionMessageState {
   setAreaMappings: (m: Record<string, string[]>) => void;
   showAreas: boolean;
   setShowAreas: (v: boolean) => void;
+  /** Average seconds between ambient NPC quips. 0 = NPC chatter off. */
+  npcQuipIntervalSec: number;
+  setNpcQuipIntervalSec: (v: number) => void;
+  /** Minutes of inactivity before an agent is despawned. 0 = sweep off. */
+  agentIdleTimeoutMin: number;
+  setAgentIdleTimeoutMin: (v: number) => void;
 }
 
 function saveAgentSeats(os: OfficeState): void {
@@ -120,6 +131,16 @@ export function useExtensionMessages(
   const [hooksInfoShown, setHooksInfoShown] = useState(true);
   const [areaMappings, setAreaMappings] = useState<Record<string, string[]>>({});
   const [showAreas, setShowAreas] = useState(false);
+  const [npcQuipIntervalSec, setNpcQuipIntervalSecState] = useState(DEFAULT_NPC_QUIP_INTERVAL_SEC);
+
+  // The quip engine reads its rate from module state (it runs inside the
+  // imperative game loop, outside React), so keep the two in sync.
+  const [agentIdleTimeoutMin, setAgentIdleTimeoutMin] = useState(DEFAULT_AGENT_IDLE_TIMEOUT_MIN);
+
+  const setNpcQuipIntervalSec = useCallback((seconds: number) => {
+    setNpcQuipIntervalSecState(seconds);
+    setNpcQuipIntervalSecEngine(seconds);
+  }, []);
 
   // Track whether initial layout has been loaded (ref to avoid re-render)
   const layoutReadyRef = useRef(false);
@@ -549,6 +570,12 @@ export function useExtensionMessages(
         if (typeof msg.showAreas === 'boolean') {
           setShowAreas(msg.showAreas as boolean);
         }
+        if (typeof msg.npcQuipIntervalSec === 'number') {
+          setNpcQuipIntervalSec(msg.npcQuipIntervalSec as number);
+        }
+        if (typeof msg.agentIdleTimeoutMin === 'number') {
+          setAgentIdleTimeoutMin(msg.agentIdleTimeoutMin as number);
+        }
         if (Array.isArray(msg.externalAssetDirectories)) {
           setExternalAssetDirectories(msg.externalAssetDirectories as string[]);
         }
@@ -619,5 +646,9 @@ export function useExtensionMessages(
     setAreaMappings,
     showAreas,
     setShowAreas,
+    npcQuipIntervalSec,
+    setNpcQuipIntervalSec,
+    agentIdleTimeoutMin,
+    setAgentIdleTimeoutMin,
   };
 }

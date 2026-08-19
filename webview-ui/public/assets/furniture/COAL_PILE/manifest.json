@@ -1,0 +1,12 @@
+{
+  "id": "COAL_PILE",
+  "name": "Coal Pile",
+  "category": "misc",
+  "type": "asset",
+  "file": "COAL_PILE.png",
+  "width": 16,
+  "height": 16,
+  "footprintW": 1,
+  "footprintH": 1,
+  "canPlaceOnSurfaces": true
+}

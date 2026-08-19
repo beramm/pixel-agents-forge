@@ -3,6 +3,7 @@ import type { AgentRuntime } from './agentRuntime.js';
 import type { AgentStateStore } from './agentStateStore.js';
 import type { LoadedAssets, LoadedCharacterSprites, LoadedPetSprites } from './assetLoader.js';
 import { readConfig, writeConfig } from './configPersistence.js';
+import { DEFAULT_AGENT_IDLE_TIMEOUT_MIN, DEFAULT_NPC_QUIP_INTERVAL_SEC } from './constants.js';
 import { readLayoutFromFile, writeLayoutToFile } from './layoutPersistence.js';
 import { claudeProvider } from './providers/index.js';
 
@@ -47,6 +48,8 @@ const KEY_WATCH_ALL_SESSIONS = 'pixel-agents.watchAllSessions';
 const KEY_HOOKS_ENABLED = 'pixel-agents.hooksEnabled';
 const KEY_HOOKS_INFO_SHOWN = 'pixel-agents.hooksInfoShown';
 const KEY_SHOW_AREAS = 'pixel-agents.showAreas';
+const KEY_NPC_QUIP_INTERVAL = 'pixel-agents.npcQuipIntervalSec';
+const KEY_AGENT_IDLE_TIMEOUT = 'pixel-agents.agentIdleTimeoutMin';
 
 /**
  * Handle incoming ClientMessage from a WebSocket client.
@@ -173,6 +176,25 @@ export function handleClientMessage(
       break;
     }
 
+    case 'setAgentIdleTimeout': {
+      const minutes = msg.minutes as number;
+      if (typeof minutes === 'number' && Number.isFinite(minutes)) {
+        const clamped = Math.max(0, minutes);
+        adapter?.setSetting(KEY_AGENT_IDLE_TIMEOUT, clamped);
+        // Live ref — the running sweep picks this up on its next tick.
+        if (runtime) runtime.idleTimeoutMs.current = clamped * 60_000;
+      }
+      break;
+    }
+
+    case 'setNpcQuipInterval': {
+      const seconds = msg.seconds as number;
+      if (typeof seconds === 'number' && Number.isFinite(seconds)) {
+        adapter?.setSetting(KEY_NPC_QUIP_INTERVAL, Math.max(0, seconds));
+      }
+      break;
+    }
+
     default:
       // focusAgent, exportLayout, importLayout
       // require IDE-specific handling (not yet implemented for standalone)
@@ -232,6 +254,12 @@ function handleWebviewReady(send: WsSend, ctx: ClientMessageContext): void {
   const watchAllSessions = adapter?.getSetting(KEY_WATCH_ALL_SESSIONS, false) ?? false;
   const hooksEnabled = adapter?.getSetting(KEY_HOOKS_ENABLED, true) ?? true;
   const showAreas = adapter?.getSetting(KEY_SHOW_AREAS, false) ?? false;
+  // Apply the persisted idle timeout to the running sweep (settings are only
+  // read here, so without this a restart would run on the compiled-in default).
+  const idleTimeoutMin =
+    adapter?.getSetting(KEY_AGENT_IDLE_TIMEOUT, DEFAULT_AGENT_IDLE_TIMEOUT_MIN) ??
+    DEFAULT_AGENT_IDLE_TIMEOUT_MIN;
+  if (runtime) runtime.idleTimeoutMs.current = idleTimeoutMin * 60_000;
   send({
     type: 'settingsLoaded',
     soundEnabled: adapter?.getSetting(KEY_SOUND_ENABLED, true) ?? true,
@@ -243,6 +271,10 @@ function handleWebviewReady(send: WsSend, ctx: ClientMessageContext): void {
     hooksInfoShown: adapter?.getSetting(KEY_HOOKS_INFO_SHOWN, false) ?? false,
     externalAssetDirectories: cfg.externalAssetDirectories,
     showAreas,
+    npcQuipIntervalSec:
+      adapter?.getSetting(KEY_NPC_QUIP_INTERVAL, DEFAULT_NPC_QUIP_INTERVAL_SEC) ??
+      DEFAULT_NPC_QUIP_INTERVAL_SEC,
+    agentIdleTimeoutMin: idleTimeoutMin,
   });
 
   // 4b. Folder→Area mappings (must arrive before existingAgents so the

@@ -1,6 +1,8 @@
 // ── User-Level Layout Persistence (re-exports from server/) ──
 export {
   CONFIG_FILE_NAME,
+  DEFAULT_AGENT_IDLE_TIMEOUT_MIN,
+  DEFAULT_NPC_QUIP_INTERVAL_SEC,
   LAYOUT_FILE_DIR,
   LAYOUT_FILE_NAME,
   LAYOUT_FILE_POLL_INTERVAL_MS,
@@ -15,6 +17,8 @@ export const GLOBAL_KEY_WATCH_ALL_SESSIONS = 'pixel-agents.watchAllSessions';
 export const GLOBAL_KEY_HOOKS_ENABLED = 'pixel-agents.hooksEnabled';
 export const GLOBAL_KEY_HOOKS_INFO_SHOWN = 'pixel-agents.hooksInfoShown';
 export const GLOBAL_KEY_SHOW_AREAS = 'pixel-agents.showAreas';
+export const GLOBAL_KEY_NPC_QUIP_INTERVAL = 'pixel-agents.npcQuipIntervalSec';
+export const GLOBAL_KEY_AGENT_IDLE_TIMEOUT = 'pixel-agents.agentIdleTimeoutMin';
 
 // Folder→Area mappings live inside the shared ~/.pixel-agents/config.json
 // (vscode.areaMappings), not in VS Code globalState. Kept here as a key

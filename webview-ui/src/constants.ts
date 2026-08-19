@@ -54,6 +54,26 @@ export const BUBBLE_SITTING_OFFSET_PX = 10;
 export const BUBBLE_VERTICAL_OFFSET_PX = 24;
 export const FALLBACK_FLOOR_COLOR = '#808080';
 
+// ── Rendering - Spark particle colors (forge + smiths building) ──
+export const SPARK_COLORS = ['#FFE08A', '#FFD24A', '#FF9A3A', '#FF7A18', '#FF5A0A'];
+
+// ── Rendering - Mug of ale (drinking NPCs) ───────────────────
+export const ALE_COLOR = '#C9922E';
+export const ALE_FOAM_COLOR = '#F0E6C0';
+export const MUG_HANDLE_COLOR = '#8A6A2E';
+
+// ── Rendering - Guitar/banjo (musician NPCs) ─────────────────
+export const GUITAR_BODY_COLOR = '#8A5A2B';
+export const GUITAR_BODY_DARK_COLOR = '#5A3418';
+export const GUITAR_STRING_COLOR = '#E0D8C0';
+
+// ── Rendering - Bartender / musician props ───────────────────
+export const CLOTH_COLOR = '#E8E4D8';
+export const INSTRUMENT_BODY_COLOR = '#8A5A2B';
+export const INSTRUMENT_NECK_COLOR = '#4A2F16';
+export const INSTRUMENT_STRING_COLOR = '#E0D2A8';
+export const INSTRUMENT_HOLE_COLOR = '#2A1A0E';
+
 // ── Rendering - Overlay Colors (canvas, not CSS) ─────────────
 export const SEAT_OWN_COLOR = 'rgba(0, 127, 212, 0.35)';
 export const SEAT_AVAILABLE_COLOR = 'rgba(0, 200, 80, 0.35)';
@@ -205,6 +225,9 @@ export const AUTO_ON_SIDE_DEPTH = 2;
 export const CHARACTER_HIT_HALF_WIDTH = 8;
 export const CHARACTER_HIT_HEIGHT = 24;
 export const TOOL_OVERLAY_VERTICAL_OFFSET = 32;
+/** Max width of a quip speech bubble. Kept narrow so bubbles stay closer to
+ *  sprite scale and overlap less when several characters speak. */
+export const QUIP_BUBBLE_MAX_WIDTH_PX = 140;
 
 // ── Agent Teams ─────────────────────────────────────────────
 export const MAX_CONTEXT_TOKENS = 200_000;
@@ -258,3 +281,21 @@ export const PET_THUMB_SCALE_MARGIN = 0.85;
 export const EMPTY_SPRITE_THUMBNAIL_BG = '#333';
 /** Maximum string length for a PlacedPet.id (defends against pathologically-long layout entries). */
 export const MAX_PET_ID_LENGTH = 128;
+
+// ── NPC chatter setting (Settings modal slider bounds) ──────────
+/** Slider floor — 0 seconds means ambient NPC chatter is switched off. */
+export const NPC_QUIP_INTERVAL_MIN_SEC = 0;
+/** Slider ceiling — one ambient NPC line per minute at the quietest setting. */
+export const NPC_QUIP_INTERVAL_MAX_SEC = 60;
+/** Slider granularity in seconds. */
+export const NPC_QUIP_INTERVAL_STEP_SEC = 5;
+
+// ── Idle-agent setting (Settings modal slider bounds) ───────────
+/** Default minutes before an idle smith is despawned. Mirrors the server default. */
+export const DEFAULT_AGENT_IDLE_TIMEOUT_MIN = 5;
+/** Slider floor — 0 minutes disables the idle sweep entirely. */
+export const AGENT_IDLE_TIMEOUT_MIN_MINUTES = 0;
+/** Slider ceiling. */
+export const AGENT_IDLE_TIMEOUT_MAX_MINUTES = 60;
+/** Slider granularity in minutes. */
+export const AGENT_IDLE_TIMEOUT_STEP_MINUTES = 1;

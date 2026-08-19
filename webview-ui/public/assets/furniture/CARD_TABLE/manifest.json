@@ -1,0 +1,11 @@
+{
+  "id": "CARD_TABLE",
+  "name": "Card Table",
+  "category": "misc",
+  "type": "asset",
+  "file": "CARD_TABLE.png",
+  "width": 32,
+  "height": 20,
+  "footprintW": 2,
+  "footprintH": 1
+}

@@ -315,6 +315,9 @@ export class HookEventHandler {
     if (!agent) return;
 
     agent.hookDelivered = true;
+    // Hooks are the only sign of life for hooks-only agents (no transcript), so
+    // the idle sweep depends on this stamp as much as on JSONL lines.
+    agent.lastActivityAt = Date.now();
     if (debug)
       console.log(
         `[Pixel Agents] Hook: Agent ${agentId} - ${eventName} (session=${event.session_id.slice(0, 8)}...)`,

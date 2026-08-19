@@ -1,0 +1,12 @@
+{
+  "id": "HAY_BALE",
+  "name": "Hay Bale",
+  "category": "decor",
+  "type": "asset",
+  "file": "HAY_BALE.png",
+  "width": 16,
+  "height": 16,
+  "footprintW": 1,
+  "footprintH": 1,
+  "canPlaceOnSurfaces": true
+}

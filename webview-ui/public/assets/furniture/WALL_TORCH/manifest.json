@@ -1,0 +1,12 @@
+{
+  "id": "WALL_TORCH",
+  "name": "Wall Torch",
+  "category": "wall",
+  "type": "asset",
+  "file": "WALL_TORCH.png",
+  "width": 16,
+  "height": 16,
+  "footprintW": 1,
+  "footprintH": 1,
+  "canPlaceOnWalls": true
+}

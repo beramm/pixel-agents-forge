@@ -25,6 +25,15 @@ export const EXTERNAL_ACTIVE_THRESHOLD_MS = 120_000; // 2 minutes
 /** Remove external agents after this much inactivity */
 // export const EXTERNAL_STALE_TIMEOUT_MS = 300_000; // 5 minutes - deprecated
 export const EXTERNAL_STALE_CHECK_INTERVAL_MS = 30_000;
+
+// ── Idle agent sweep ───────────────────────────────────────
+/** Default minutes of inactivity before a smith is taken off the Work Orders
+ *  board and despawned. User-configurable; 0 disables the sweep. */
+export const DEFAULT_AGENT_IDLE_TIMEOUT_MIN = 5;
+/** Default idle threshold in ms (derived from the minutes default). */
+export const AGENT_IDLE_DESTROY_MS = DEFAULT_AGENT_IDLE_TIMEOUT_MIN * 60_000;
+/** How often the idle sweep runs (removal lands within this of the threshold). */
+export const IDLE_AGENT_SWEEP_INTERVAL_MS = 15_000;
 /** Cooldown after user closes an agent via X. Must be > EXTERNAL_ACTIVE_THRESHOLD_MS
  *  so the file's mtime becomes stale before the dismissal expires. */
 export const DISMISSED_COOLDOWN_MS = 180_000; // 3 minutes
@@ -76,3 +85,7 @@ export const LAYOUT_FILE_NAME = 'layout.json';
 export const LAYOUT_FILE_POLL_INTERVAL_MS = 2000;
 export const LAYOUT_REVISION_KEY = 'layoutRevision';
 export const CONFIG_FILE_NAME = 'config.json';
+
+// ── Ambient NPC chatter ────────────────────────────────────
+/** Average seconds between ambient NPC speech bubbles. 0 = NPC chatter off. */
+export const DEFAULT_NPC_QUIP_INTERVAL_SEC = 15;

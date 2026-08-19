@@ -1,5 +1,13 @@
 import { useRef, useState } from 'react';
 
+import {
+  AGENT_IDLE_TIMEOUT_MAX_MINUTES,
+  AGENT_IDLE_TIMEOUT_MIN_MINUTES,
+  AGENT_IDLE_TIMEOUT_STEP_MINUTES,
+  NPC_QUIP_INTERVAL_MAX_SEC,
+  NPC_QUIP_INTERVAL_MIN_SEC,
+  NPC_QUIP_INTERVAL_STEP_SEC,
+} from '../constants.js';
 import { isSoundEnabled, setSoundEnabled } from '../notificationSound.js';
 import { isBrowserRuntime } from '../runtime.js';
 import { transport } from '../transport/index.js';
@@ -25,6 +33,12 @@ interface SettingsModalProps {
   onToggleShowAreas: () => void;
   /** Hide the Show Areas checkbox entirely when areas are unavailable. */
   showAreasAvailable: boolean;
+  /** Average seconds between ambient NPC speech bubbles (0 = off). */
+  npcQuipIntervalSec: number;
+  onChangeNpcQuipInterval: (seconds: number) => void;
+  /** Minutes of inactivity before a smith is despawned (0 = never). */
+  agentIdleTimeoutMin: number;
+  onChangeAgentIdleTimeout: (minutes: number) => void;
   /** Browser-native layout export (standalone only; VS Code uses the host save dialog). */
   onExportLayout: () => void;
   /** Browser-native layout import from a chosen file (standalone only). */
@@ -46,6 +60,10 @@ export function SettingsModal({
   showAreas,
   onToggleShowAreas,
   showAreasAvailable,
+  npcQuipIntervalSec,
+  onChangeNpcQuipInterval,
+  agentIdleTimeoutMin,
+  onChangeAgentIdleTimeout,
   onExportLayout,
   onImportLayout,
 }: SettingsModalProps) {
@@ -188,6 +206,44 @@ export function SettingsModal({
       {showAreasAvailable && (
         <Checkbox label="Show Areas" checked={showAreas} onChange={onToggleShowAreas} />
       )}
+      <div className="flex items-center justify-between py-4 px-10 gap-8">
+        <span className="text-xs text-text">
+          NPC Chatter
+          <span className="text-text-muted">
+            {' '}
+            {npcQuipIntervalSec > 0 ? `every ~${String(npcQuipIntervalSec)}s` : 'off'}
+          </span>
+        </span>
+        <input
+          type="range"
+          min={NPC_QUIP_INTERVAL_MIN_SEC}
+          max={NPC_QUIP_INTERVAL_MAX_SEC}
+          step={NPC_QUIP_INTERVAL_STEP_SEC}
+          value={npcQuipIntervalSec}
+          aria-label="NPC chatter interval in seconds"
+          onChange={(e) => onChangeNpcQuipInterval(Number(e.target.value))}
+          className="shrink-0 w-96"
+        />
+      </div>
+      <div className="flex items-center justify-between py-4 px-10 gap-8">
+        <span className="text-xs text-text">
+          Idle Smith Timeout
+          <span className="text-text-muted">
+            {' '}
+            {agentIdleTimeoutMin > 0 ? `${String(agentIdleTimeoutMin)} min` : 'never'}
+          </span>
+        </span>
+        <input
+          type="range"
+          min={AGENT_IDLE_TIMEOUT_MIN_MINUTES}
+          max={AGENT_IDLE_TIMEOUT_MAX_MINUTES}
+          step={AGENT_IDLE_TIMEOUT_STEP_MINUTES}
+          value={agentIdleTimeoutMin}
+          aria-label="Idle timeout in minutes before a smith leaves the board"
+          onChange={(e) => onChangeAgentIdleTimeout(Number(e.target.value))}
+          className="shrink-0 w-96"
+        />
+      </div>
       <Checkbox label="Debug View" checked={isDebugMode} onChange={onToggleDebugMode} />
     </Modal>
   );

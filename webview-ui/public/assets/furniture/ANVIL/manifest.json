@@ -1,0 +1,12 @@
+{
+  "id": "ANVIL",
+  "name": "Anvil",
+  "category": "misc",
+  "type": "asset",
+  "file": "ANVIL.png",
+  "width": 16,
+  "height": 16,
+  "footprintW": 1,
+  "footprintH": 1,
+  "canPlaceOnSurfaces": true
+}

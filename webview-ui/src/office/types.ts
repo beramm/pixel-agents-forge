@@ -66,6 +66,8 @@ export interface FurnitureInstance {
   zY: number;
   /** Render-time horizontal flip flag (for mirrored side variants) */
   mirrored?: boolean;
+  /** Source furniture type id (e.g. "FORGE") — lets the renderer add effects. */
+  type?: string;
 }
 
 export interface ToolActivity {
@@ -223,6 +225,42 @@ export interface Character {
   matrixEffectSeeds: number[];
   /** Workspace folder name (only set for multi-root workspaces) */
   folderName?: string;
+
+  /** Ambient non-player villager (decorative wanderer, not a real agent) */
+  isNpc?: boolean;
+  /** Display name for an NPC (e.g. "Apprentice") */
+  npcName?: string;
+  /** Per-character hammer/animation phase (0..1) so smiths don't swing in
+   *  lockstep. Set once at creation, never reset. */
+  animPhase?: number;
+  /** Bartender NPC: stands behind the bar, always busy, never wanders. */
+  isBartender?: boolean;
+  /** Musician NPC: stands by an instrument, always playing, never wanders. */
+  isMusician?: boolean;
+  /** Card-player NPC: permanently seated at the card table (a standing crowd). */
+  isCardPlayer?: boolean;
+  /** User is manually walking this NPC — suspend its AI until it arrives. */
+  manualMove?: boolean;
+  /** What a seated NPC is doing: drinking at the bar, or playing cards. */
+  socialKind?: 'bar' | 'cards';
+  /** Tavern behavior (NPCs only): heading to a spot, or seated there. */
+  barState?: 'heading' | 'drinking';
+  /** Reserved tavern sit tile while heading/drinking. */
+  barTile?: { col: number; row: number } | null;
+  /** Countdown: time to next bar visit, or remaining drink time. */
+  barTimer?: number;
+  /** Drunkenness 0..1 — rises while drinking, decays otherwise. */
+  drunk?: number;
+  /** Current speech-bubble quip text, or null. NPCs auto-generate these;
+   *  agents get one when their work order is clicked. */
+  quip?: string | null;
+  /** Seconds the current quip stays visible (counts to 0). */
+  quipTimer?: number;
+  /** Seconds until an NPC's next auto-quip (counts to 0). Unused for agents. */
+  quipCooldown?: number;
+  /** True when the quip was user-triggered (work-order ack). Sticky quips show
+   *  a dismiss button and are never evicted by the ambient chatter budget. */
+  quipSticky?: boolean;
 
   // -- Agent Teams --
   /** Team name this agent belongs to */

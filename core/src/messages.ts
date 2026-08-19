@@ -58,6 +58,8 @@ export type ClientMessage =
   | RemoveExternalAssetDirectory
   | SaveAreaMappings
   | SetShowAreas
+  | SetNpcQuipInterval
+  | SetAgentIdleTimeout
   | RequestDiagnostics;
 
 export interface ProviderCapabilities {
@@ -267,6 +269,8 @@ export interface SettingsLoaded {
   hooksInfoShown: boolean;
   externalAssetDirectories: string[];
   showAreas: boolean;
+  npcQuipIntervalSec: number;
+  agentIdleTimeoutMin: number;
 }
 
 export interface ExternalAssetDirectoriesUpdated {
@@ -389,6 +393,16 @@ export interface SaveAreaMappings {
 export interface SetShowAreas {
   type: 'setShowAreas';
   enabled: boolean;
+}
+
+export interface SetNpcQuipInterval {
+  type: 'setNpcQuipInterval';
+  seconds: number;
+}
+
+export interface SetAgentIdleTimeout {
+  type: 'setAgentIdleTimeout';
+  minutes: number;
 }
 
 export interface RequestDiagnostics {

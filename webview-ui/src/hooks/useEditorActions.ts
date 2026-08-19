@@ -13,6 +13,7 @@ import {
   addArea,
   canPlaceFurniture,
   eraseArea,
+  eraseAt,
   eraseCarpet,
   expandLayout,
   getWallPlacementRow,
@@ -696,10 +697,7 @@ export function useEditorActions(
           }
         }
       } else if (editorState.activeTool === EditTool.ERASE) {
-        if (col < 0 || col >= layout.cols || row < 0 || row >= layout.rows) return;
-        const idx = row * layout.cols + col;
-        if (layout.tiles[idx] === TileType.VOID) return;
-        const newLayout = paintTile(layout, col, row, TileType.VOID);
+        const newLayout = eraseAt(layout, col, row);
         if (newLayout !== layout) {
           applyEdit(newLayout);
         }
@@ -898,8 +896,17 @@ export function useEditorActions(
         return;
       }
 
+      // Erase tool: right-click/drag also removes furniture (matches left-click).
+      if (editorState.activeTool === EditTool.ERASE) {
+        const erased = eraseAt(layout, col, row);
+        if (erased !== layout) {
+          applyEdit(erased);
+        }
+        return;
+      }
+
       const idx = row * layout.cols + col;
-      // Only erase non-VOID tiles
+      // Only erase non-VOID tiles (floor/wall right-click)
       if (layout.tiles[idx] === TileType.VOID) return;
       const newLayout = paintTile(layout, col, row, TileType.VOID);
       if (newLayout !== layout) {

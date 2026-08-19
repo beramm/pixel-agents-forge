@@ -138,6 +138,8 @@ components:
         - $ref: '#/components/schemas/RemoveExternalAssetDirectory'
         - $ref: '#/components/schemas/SaveAreaMappings'
         - $ref: '#/components/schemas/SetShowAreas'
+        - $ref: '#/components/schemas/SetNpcQuipInterval'
+        - $ref: '#/components/schemas/SetAgentIdleTimeout'
         - $ref: '#/components/schemas/RequestDiagnostics'
       discriminator: type
 
@@ -619,6 +621,8 @@ components:
         - hooksInfoShown
         - externalAssetDirectories
         - showAreas
+        - npcQuipIntervalSec
+        - agentIdleTimeoutMin
       properties:
         type:
           const: settingsLoaded
@@ -642,6 +646,16 @@ components:
             type: string
         showAreas:
           type: boolean
+        npcQuipIntervalSec:
+          type: number
+          description: |
+            Average seconds between ambient NPC speech bubbles. 0 silences NPC
+            chatter entirely. Agent (smith) quips are unaffected.
+        agentIdleTimeoutMin:
+          type: number
+          description: |
+            Minutes of inactivity after which an agent is removed from the Work
+            Orders board and despawned. 0 disables the idle sweep.
 
     AreaMappingsLoaded:
       description: |
@@ -910,6 +924,32 @@ components:
           const: setShowAreas
         enabled:
           type: boolean
+
+    SetNpcQuipInterval:
+      description: |
+        Set the average seconds between ambient NPC speech bubbles.
+        0 disables NPC chatter. Does not affect agent quips.
+      type: object
+      additionalProperties: false
+      required: [type, seconds]
+      properties:
+        type:
+          const: setNpcQuipInterval
+        seconds:
+          type: number
+
+    SetAgentIdleTimeout:
+      description: |
+        Set the inactivity timeout, in minutes, after which an agent is removed
+        and despawned. 0 disables the idle sweep.
+      type: object
+      additionalProperties: false
+      required: [type, minutes]
+      properties:
+        type:
+          const: setAgentIdleTimeout
+        minutes:
+          type: number
 
     RequestDiagnostics:
       description: Request agent connection diagnostics (server responds with agentDiagnostics).

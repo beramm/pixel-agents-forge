@@ -1,0 +1,12 @@
+{
+  "id": "BARREL",
+  "name": "Barrel",
+  "category": "storage",
+  "type": "asset",
+  "file": "BARREL.png",
+  "width": 16,
+  "height": 16,
+  "footprintW": 1,
+  "footprintH": 1,
+  "canPlaceOnSurfaces": true
+}

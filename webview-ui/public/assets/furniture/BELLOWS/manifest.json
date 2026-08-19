@@ -1,0 +1,11 @@
+{
+  "id": "BELLOWS",
+  "name": "Bellows",
+  "category": "misc",
+  "type": "asset",
+  "file": "BELLOWS.png",
+  "width": 16,
+  "height": 16,
+  "footprintW": 1,
+  "footprintH": 1
+}

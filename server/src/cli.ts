@@ -214,9 +214,10 @@ async function main(): Promise<void> {
       runtime.startProjectScan(projectDir);
       runtime.startExternalScanning(projectDir);
       runtime.startStaleCheck();
+      runtime.startIdleSweep();
     }
 
-    console.log(`\n  Pixel Agents server running at http://${args.host}:${config.port}\n`);
+    console.log(`\n  🔨 Pixel Forge server running at http://${args.host}:${config.port}\n`);
 
     // ── Graceful shutdown ──
     function shutdown(): void {

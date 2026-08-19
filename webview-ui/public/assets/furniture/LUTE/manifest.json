@@ -1,0 +1,11 @@
+{
+  "id": "LUTE",
+  "name": "Lute",
+  "category": "decor",
+  "type": "asset",
+  "file": "LUTE.png",
+  "width": 16,
+  "height": 16,
+  "footprintW": 1,
+  "footprintH": 1
+}

@@ -1,0 +1,12 @@
+{
+  "id": "TOOL_RACK",
+  "name": "Tool Rack",
+  "category": "wall",
+  "type": "asset",
+  "file": "TOOL_RACK.png",
+  "width": 16,
+  "height": 16,
+  "footprintW": 1,
+  "footprintH": 1,
+  "canPlaceOnWalls": true
+}

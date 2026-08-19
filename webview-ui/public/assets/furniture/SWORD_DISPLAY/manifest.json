@@ -1,0 +1,12 @@
+{
+  "id": "SWORD_DISPLAY",
+  "name": "Sword Display",
+  "category": "decor",
+  "type": "asset",
+  "file": "SWORD_DISPLAY.png",
+  "width": 16,
+  "height": 16,
+  "footprintW": 1,
+  "footprintH": 1,
+  "canPlaceOnWalls": true
+}

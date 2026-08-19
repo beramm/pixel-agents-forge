@@ -2,7 +2,12 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 
-import { CONFIG_FILE_NAME, LAYOUT_FILE_DIR } from './constants.js';
+import {
+  CONFIG_FILE_NAME,
+  DEFAULT_AGENT_IDLE_TIMEOUT_MIN,
+  DEFAULT_NPC_QUIP_INTERVAL_SEC,
+  LAYOUT_FILE_DIR,
+} from './constants.js';
 
 export interface AdapterSettings {
   soundEnabled: boolean;
@@ -12,6 +17,10 @@ export interface AdapterSettings {
   hooksEnabled: boolean;
   hooksInfoShown: boolean;
   showAreas: boolean;
+  /** Average seconds between ambient NPC quips. 0 = NPC chatter off. */
+  npcQuipIntervalSec: number;
+  /** Minutes of inactivity before an agent is despawned. 0 = sweep off. */
+  agentIdleTimeoutMin: number;
   areaMappings: Record<string, string[]>;
 }
 
@@ -24,6 +33,8 @@ export const ADAPTER_SETTING_KEYS = [
   'hooksEnabled',
   'hooksInfoShown',
   'showAreas',
+  'npcQuipIntervalSec',
+  'agentIdleTimeoutMin',
   'areaMappings',
 ] as const;
 
@@ -46,6 +57,8 @@ const DEFAULT_ADAPTER_SETTINGS: AdapterSettings = {
   hooksEnabled: true,
   hooksInfoShown: false,
   showAreas: false,
+  npcQuipIntervalSec: DEFAULT_NPC_QUIP_INTERVAL_SEC,
+  agentIdleTimeoutMin: DEFAULT_AGENT_IDLE_TIMEOUT_MIN,
   areaMappings: {},
 };
 
@@ -107,6 +120,14 @@ function parseAdapterSettings(raw: unknown): AdapterSettings {
         : DEFAULT_ADAPTER_SETTINGS.hooksInfoShown,
     showAreas:
       typeof obj.showAreas === 'boolean' ? obj.showAreas : DEFAULT_ADAPTER_SETTINGS.showAreas,
+    npcQuipIntervalSec:
+      typeof obj.npcQuipIntervalSec === 'number' && Number.isFinite(obj.npcQuipIntervalSec)
+        ? Math.max(0, obj.npcQuipIntervalSec)
+        : DEFAULT_ADAPTER_SETTINGS.npcQuipIntervalSec,
+    agentIdleTimeoutMin:
+      typeof obj.agentIdleTimeoutMin === 'number' && Number.isFinite(obj.agentIdleTimeoutMin)
+        ? Math.max(0, obj.agentIdleTimeoutMin)
+        : DEFAULT_ADAPTER_SETTINGS.agentIdleTimeoutMin,
     areaMappings: parseAreaMappings(obj.areaMappings),
   };
 }

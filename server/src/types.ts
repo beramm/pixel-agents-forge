@@ -24,6 +24,10 @@ export interface AgentState {
   folderName?: string;
   /** Timestamp of last JSONL data received (ms since epoch) */
   lastDataAt: number;
+  /** Timestamp of the last sign of life from ANY source — JSONL line or hook
+   *  event (ms since epoch). Drives the idle sweep, which must also work for
+   *  hooks-only agents that never write a transcript. */
+  lastActivityAt: number;
   /** Total JSONL lines processed for this agent */
   linesProcessed: number;
   /** Set of record.type values we've already warned about (prevents log spam) */

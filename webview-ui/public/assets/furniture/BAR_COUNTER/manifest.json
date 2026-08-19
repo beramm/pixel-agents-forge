@@ -1,0 +1,11 @@
+{
+  "id": "BAR_COUNTER",
+  "name": "Bar Counter",
+  "category": "misc",
+  "type": "asset",
+  "file": "BAR_COUNTER.png",
+  "width": 48,
+  "height": 28,
+  "footprintW": 3,
+  "footprintH": 1
+}

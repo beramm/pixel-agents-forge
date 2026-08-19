@@ -1,0 +1,12 @@
+{
+  "id": "TAVERN_SIGN",
+  "name": "Tavern Sign",
+  "category": "wall",
+  "type": "asset",
+  "file": "TAVERN_SIGN.png",
+  "width": 16,
+  "height": 16,
+  "footprintW": 1,
+  "footprintH": 1,
+  "canPlaceOnWalls": true
+}

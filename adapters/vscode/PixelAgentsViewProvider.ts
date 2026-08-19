@@ -47,10 +47,14 @@ import {
 import {
   CONFIG_KEY_AUTO_SHOW_PANEL,
   CONFIG_KEY_AUTO_SPAWN_AGENT,
+  DEFAULT_AGENT_IDLE_TIMEOUT_MIN,
+  DEFAULT_NPC_QUIP_INTERVAL_SEC,
+  GLOBAL_KEY_AGENT_IDLE_TIMEOUT,
   GLOBAL_KEY_ALWAYS_SHOW_LABELS,
   GLOBAL_KEY_HOOKS_ENABLED,
   GLOBAL_KEY_HOOKS_INFO_SHOWN,
   GLOBAL_KEY_LAST_SEEN_VERSION,
+  GLOBAL_KEY_NPC_QUIP_INTERVAL,
   GLOBAL_KEY_SHOW_AREAS,
   GLOBAL_KEY_SOUND_ENABLED,
   GLOBAL_KEY_WATCH_ALL_SESSIONS,
@@ -312,6 +316,19 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
       } else if (message.type === 'setShowAreas') {
         const enabled = message.enabled as boolean;
         this.adapter.setSetting(GLOBAL_KEY_SHOW_AREAS, enabled);
+      } else if (message.type === 'setAgentIdleTimeout') {
+        const minutes = message.minutes as number;
+        if (typeof minutes === 'number' && Number.isFinite(minutes)) {
+          const clamped = Math.max(0, minutes);
+          this.adapter.setSetting(GLOBAL_KEY_AGENT_IDLE_TIMEOUT, clamped);
+          // Live ref — the running sweep picks this up on its next tick.
+          this.runtime.idleTimeoutMs.current = clamped * 60_000;
+        }
+      } else if (message.type === 'setNpcQuipInterval') {
+        const seconds = message.seconds as number;
+        if (typeof seconds === 'number' && Number.isFinite(seconds)) {
+          this.adapter.setSetting(GLOBAL_KEY_NPC_QUIP_INTERVAL, Math.max(0, seconds));
+        }
       } else if (message.type === 'saveAreaMappings') {
         const mappings = message.mappings as Record<string, string[]>;
         const cfg = readConfig();
@@ -393,6 +410,15 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
         const hooksEnabled = this.adapter.getSetting<boolean>(GLOBAL_KEY_HOOKS_ENABLED, true);
         const hooksInfoShown = this.adapter.getSetting<boolean>(GLOBAL_KEY_HOOKS_INFO_SHOWN, false);
         const showAreas = this.adapter.getSetting<boolean>(GLOBAL_KEY_SHOW_AREAS, false);
+        const agentIdleTimeoutMin = this.adapter.getSetting<number>(
+          GLOBAL_KEY_AGENT_IDLE_TIMEOUT,
+          DEFAULT_AGENT_IDLE_TIMEOUT_MIN,
+        );
+        this.runtime.idleTimeoutMs.current = agentIdleTimeoutMin * 60_000;
+        const npcQuipIntervalSec = this.adapter.getSetting<number>(
+          GLOBAL_KEY_NPC_QUIP_INTERVAL,
+          DEFAULT_NPC_QUIP_INTERVAL_SEC,
+        );
         const config = readConfig();
         this.webview?.postMessage({
           type: 'settingsLoaded',
@@ -405,6 +431,8 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
           hooksInfoShown,
           externalAssetDirectories: config.externalAssetDirectories,
           showAreas,
+          npcQuipIntervalSec,
+          agentIdleTimeoutMin,
         });
 
         // Folder→Area mappings (must arrive before any agentCreated/existingAgents
@@ -510,6 +538,7 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
         }
 
         this.runtime.startStaleCheck();
+        this.runtime.startIdleSweep();
 
         // Load furniture assets BEFORE sending layout
         (async () => {

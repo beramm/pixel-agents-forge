@@ -1,0 +1,11 @@
+{
+  "id": "NOTICE_BOARD",
+  "name": "Work Board",
+  "category": "decor",
+  "type": "asset",
+  "file": "NOTICE_BOARD.png",
+  "width": 16,
+  "height": 24,
+  "footprintW": 1,
+  "footprintH": 1
+}

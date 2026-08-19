@@ -9,22 +9,22 @@
 }
 
 :root {
-  /* Core palette */
-  --color-bg: #1e1e2e;
-  --color-bg-dark: #181828;
-  --color-bg-thumb: #2a2a3a;
-  --color-border: #4a4a6a;
-  --color-accent: #6030ff;
-  --color-accent-bright: #746fff;
+  /* Core palette — blacksmith forge (warm iron & ember) */
+  --color-bg: #241b16;
+  --color-bg-dark: #17100b;
+  --color-bg-thumb: #3a2a1e;
+  --color-border: #6b4423;
+  --color-accent: #d1400a;
+  --color-accent-bright: #ff7a18;
 
   /* Text */
-  --color-text: rgba(255, 255, 255, 0.9);
-  --color-text-muted: rgba(255, 255, 255, 0.5);
+  --color-text: rgba(255, 240, 224, 0.92);
+  --color-text-muted: rgba(255, 226, 196, 0.5);
 
   /* Buttons */
-  --color-btn-bg: rgb(53, 52, 69);
-  --color-btn-hover: rgb(78, 75, 104);
-  --color-active-bg: rgb(44, 43, 109);
+  --color-btn-bg: rgb(58, 42, 30);
+  --color-btn-hover: rgb(96, 62, 34);
+  --color-active-bg: rgb(140, 58, 12);
 
   /* Semantic */
   --color-reset-text: #ecc;

@@ -7,10 +7,12 @@ import { ConnectionIndicator } from './components/ConnectionIndicator.js';
 import { DebugView } from './components/DebugView.js';
 import { EditActionBar } from './components/EditActionBar.js';
 import { MigrationNotice } from './components/MigrationNotice.js';
+import { QuipOverlay } from './components/QuipOverlay.js';
 import { SettingsModal } from './components/SettingsModal.js';
 import { Tooltip } from './components/Tooltip.js';
 import { Modal } from './components/ui/Modal.js';
 import { VersionIndicator } from './components/VersionIndicator.js';
+import { WorkOrdersBoard } from './components/WorkOrdersBoard.js';
 import { ZoomControls } from './components/ZoomControls.js';
 import { useEditorActions } from './hooks/useEditorActions.js';
 import { useEditorKeyboard } from './hooks/useEditorKeyboard.js';
@@ -26,6 +28,7 @@ import { migrateLayoutColors } from './office/layout/layoutSerializer.js';
 import { getPetCount } from './office/sprites/petSpriteData.js';
 import { EditTool, type OfficeLayout } from './office/types.js';
 import { isBrowserRuntime, isE2E } from './runtime.js';
+import { smithName, smithTaskText } from './smithActivity.js';
 import { installTestHooks } from './testHooks.js';
 import { transport } from './transport/index.js';
 
@@ -89,6 +92,10 @@ function App() {
     setAreaMappings,
     showAreas,
     setShowAreas,
+    npcQuipIntervalSec,
+    setNpcQuipIntervalSec,
+    agentIdleTimeoutMin,
+    setAgentIdleTimeoutMin,
   } = useExtensionMessages(getOfficeState, editor.setLastSavedLayout, isEditDirty);
 
   // Show migration notice once layout reset is detected
@@ -101,6 +108,29 @@ function App() {
   const [hooksTooltipDismissed, setHooksTooltipDismissed] = useState(false);
   const [isDebugMode, setIsDebugMode] = useState(false);
   const [alwaysShowOverlay, setAlwaysShowOverlay] = useState(false);
+
+  // Spawn ambient villager NPCs once the forge layout is ready.
+  const npcsSpawnedRef = useRef(false);
+  useEffect(() => {
+    if (layoutReady && !npcsSpawnedRef.current) {
+      npcsSpawnedRef.current = true;
+      getOfficeState().spawnNpcs(4);
+    }
+  }, [layoutReady]);
+
+  // Feed working-smith context to the engine so NPC + smith quips can reference
+  // who is working on what.
+  useEffect(() => {
+    const os = getOfficeState();
+    os.setWorkContext(
+      agents.map((id) => {
+        const ch = os.characters.get(id);
+        const tools = agentTools[id];
+        const active = !!(ch?.isActive || tools?.some((t) => !t.done));
+        return { id, name: smithName(id, ch), task: smithTaskText(id, ch, agentTools), active };
+      }),
+    );
+  }, [agents, agentTools]);
 
   const currentMajorMinor = toMajorMinor(extensionVersion);
 
@@ -128,6 +158,13 @@ function App() {
   }, []);
 
   const handleSelectAgent = useCallback((id: number) => {
+    transport.send({ type: 'focusAgent', id });
+  }, []);
+
+  // Work Orders row click: highlight the smith in the scene + blacksmith
+  // acknowledgement bubble, and focus its terminal.
+  const handleWorkOrderClick = useCallback((id: number) => {
+    getOfficeState().sayAck(id);
     transport.send({ type: 'focusAgent', id });
   }, []);
 
@@ -163,6 +200,26 @@ function App() {
     setShowAreas(next);
     transport.send({ type: 'setShowAreas', enabled: next });
   }, [showAreas, setShowAreas]);
+
+  // Ambient NPC chatter rate (seconds between quips; 0 = off). Applied to the
+  // quip engine immediately, persisted host-side via setNpcQuipInterval.
+  const onChangeNpcQuipInterval = useCallback(
+    (seconds: number) => {
+      setNpcQuipIntervalSec(seconds);
+      transport.send({ type: 'setNpcQuipInterval', seconds });
+    },
+    [setNpcQuipIntervalSec],
+  );
+
+  // Idle timeout (minutes) before a smith is taken off the Work Orders board.
+  // Server-side setting: the sweep lives in AgentRuntime, nothing local to apply.
+  const onChangeAgentIdleTimeout = useCallback(
+    (minutes: number) => {
+      setAgentIdleTimeoutMin(minutes);
+      transport.send({ type: 'setAgentIdleTimeout', minutes });
+    },
+    [setAgentIdleTimeoutMin],
+  );
 
   // When AREA_PAINT is active in the editor, force the overlay on even if the
   // user has toggled Show Areas off globally — they need to see what they're
@@ -406,6 +463,22 @@ function App() {
             onCloseAgent={handleCloseAgent}
             alwaysShowOverlay={alwaysShowOverlay}
           />
+
+          <QuipOverlay
+            officeState={officeState}
+            containerRef={containerRef}
+            zoom={editor.zoom}
+            panRef={editor.panRef}
+          />
+
+          {layoutReady && !editor.isEditMode && (
+            <WorkOrdersBoard
+              agents={agents}
+              agentTools={agentTools}
+              officeState={officeState}
+              onSelectAgent={handleWorkOrderClick}
+            />
+          )}
         </>
       ) : (
         <DebugView
@@ -453,7 +526,7 @@ function App() {
         zIndex={52}
       >
         <div className="text-base text-text px-10" style={{ lineHeight: 1.4 }}>
-          <p className="mb-8">Your Pixel Agents office now reacts in real-time:</p>
+          <p className="mb-8">Your Pixel Forge now reacts in real-time:</p>
           <ul className="mb-8 pl-18 list-disc m-0">
             <li className="text-sm mb-2">Permission prompts appear instantly</li>
             <li className="text-sm mb-2">Turn completions detected the moment they happen</li>
@@ -524,6 +597,10 @@ function App() {
         showAreas={showAreas}
         onToggleShowAreas={onToggleShowAreas}
         showAreasAvailable={areasAvailable}
+        npcQuipIntervalSec={npcQuipIntervalSec}
+        onChangeNpcQuipInterval={onChangeNpcQuipInterval}
+        agentIdleTimeoutMin={agentIdleTimeoutMin}
+        onChangeAgentIdleTimeout={onChangeAgentIdleTimeout}
         onExportLayout={handleExportLayout}
         onImportLayout={handleImportLayout}
       />

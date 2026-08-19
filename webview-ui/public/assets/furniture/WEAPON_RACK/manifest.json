@@ -1,0 +1,11 @@
+{
+  "id": "WEAPON_RACK",
+  "name": "Weapon Rack",
+  "category": "decor",
+  "type": "asset",
+  "file": "WEAPON_RACK.png",
+  "width": 16,
+  "height": 30,
+  "footprintW": 1,
+  "footprintH": 2
+}

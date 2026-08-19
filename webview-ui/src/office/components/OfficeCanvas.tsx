@@ -752,7 +752,14 @@ export function OfficeCanvas({
         if (selectedCh && !selectedCh.isSubagent) {
           const tile = screenToTile(e.clientX, e.clientY);
           if (tile) {
-            const seatId = officeState.getSeatAtTile(tile.col, tile.row);
+            // NPCs can be walked to ANY walkable tile (not just chairs). Keep
+            // them selected so you can keep repositioning them.
+            if (selectedCh.isNpc && officeState.walkToTile(selectedCh.id, tile.col, tile.row)) {
+              return;
+            }
+            // Agent seats (workbench stools) are for agents only — NPCs can't be
+            // assigned to them (NPCs use their own bar/card stools via their AI).
+            const seatId = selectedCh.isNpc ? null : officeState.getSeatAtTile(tile.col, tile.row);
             if (seatId) {
               const seat = officeState.seats.get(seatId);
               if (seat && selectedCh) {

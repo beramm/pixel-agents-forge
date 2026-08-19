@@ -1,5 +1,7 @@
 import type { ColorValue } from '../../components/ui/types.js';
 import {
+  ALE_COLOR,
+  ALE_FOAM_COLOR,
   AREA_ACTIVE_ALPHA_MULTIPLIER,
   AREA_LABEL_ALPHA,
   AREA_LABEL_FALLBACK_COLOR,
@@ -31,7 +33,11 @@ import {
   GHOST_PREVIEW_TINT_ALPHA,
   GHOST_VALID_TINT,
   GRID_LINE_COLOR,
+  GUITAR_BODY_COLOR,
+  GUITAR_BODY_DARK_COLOR,
+  GUITAR_STRING_COLOR,
   HOVERED_OUTLINE_ALPHA,
+  MUG_HANDLE_COLOR,
   OUTLINE_Z_SORT_OFFSET,
   ROTATE_BUTTON_BG,
   SEAT_AVAILABLE_COLOR,
@@ -40,6 +46,7 @@ import {
   SELECTED_OUTLINE_ALPHA,
   SELECTION_DASH_PATTERN,
   SELECTION_HIGHLIGHT_COLOR,
+  SPARK_COLORS,
   VOID_TILE_DASH_PATTERN,
   VOID_TILE_OUTLINE_COLOR,
 } from '../../constants.js';
@@ -57,6 +64,7 @@ import {
   BUBBLE_WAITING_SPRITE,
   getCharacterSprites,
 } from '../sprites/spriteData.js';
+import { isReadingToolName } from '../toolUtils.js';
 import type {
   AreaDefinition,
   CarpetTile,
@@ -69,9 +77,112 @@ import type {
 } from '../types.js';
 import { CharacterState, TILE_SIZE, TileType } from '../types.js';
 import { getWallInstances, hasWallSprites, wallColorToHex } from '../wallTiles.js';
-import { getCharacterSprite } from './characters.js';
+import { getCharacterSprite, hammerCycle } from './characters.js';
 import { renderMatrixEffect } from './matrixEffect.js';
 import { getPetSpriteData } from './petEntity.js';
+
+/**
+ * Draw animated rising ember/spark particles at a device-pixel origin.
+ * Time-based (performance.now) so it animates every frame without extra state.
+ * `riseSpritePx` / `spreadSpritePx` are in sprite pixels (scaled by zoom).
+ */
+function drawSparks(
+  ctx: CanvasRenderingContext2D,
+  ox: number,
+  oy: number,
+  zoom: number,
+  count: number,
+  riseSpritePx: number,
+  spreadSpritePx: number,
+  seed: number,
+): void {
+  const now = performance.now();
+  for (let i = 0; i < count; i++) {
+    // Each spark cycles 0→1 (born at origin, rises + fades out).
+    const phase = (((now / 900 + i / count + seed * 0.017 + i * 0.13) % 1) + 1) % 1;
+    const drift =
+      Math.sin(seed + i * 2.3 + now / 260) * spreadSpritePx * zoom * (0.3 + phase * 0.7);
+    const px = ox + drift;
+    const py = oy - phase * riseSpritePx * zoom;
+    const size = Math.max(1, Math.round(zoom * (phase < 0.5 ? 1 : 0.6)));
+    ctx.globalAlpha = Math.max(0, 1 - phase);
+    ctx.fillStyle =
+      SPARK_COLORS[(i + Math.floor(phase * SPARK_COLORS.length)) % SPARK_COLORS.length];
+    ctx.fillRect(Math.round(px - size / 2), Math.round(py), size, size);
+  }
+  ctx.globalAlpha = 1;
+}
+
+/**
+ * A burst of "iron clashing" sparks that fan out and arc down from an impact
+ * point. `t` is the strike progress (0 = moment of impact, 1 = faded out).
+ */
+function drawClashSparks(
+  ctx: CanvasRenderingContext2D,
+  ox: number,
+  oy: number,
+  zoom: number,
+  t: number,
+  seed: number,
+): void {
+  const count = 9;
+  for (let i = 0; i < count; i++) {
+    // Deterministic per-(seed,i) speed jitter.
+    const rnd = (((Math.sin(seed * 12.9 + i * 78.233) * 43758.5453) % 1) + 1) % 1;
+    const ang = -Math.PI / 2 + (i / (count - 1) - 0.5) * 2.3; // fan upward ±
+    const speed = 6 + rnd * 7;
+    const px = ox + Math.cos(ang) * speed * t * zoom;
+    const py = oy + (Math.sin(ang) * speed * t + 9 * t * t) * zoom; // + gravity
+    const size = Math.max(1, Math.round(zoom * (t < 0.5 ? 1 : 0.6)));
+    ctx.globalAlpha = Math.max(0, 1 - t);
+    ctx.fillStyle = SPARK_COLORS[(i + (t < 0.2 ? 0 : 2)) % SPARK_COLORS.length];
+    ctx.fillRect(Math.round(px - size / 2), Math.round(py - size / 2), size, size);
+  }
+  // Bright white-hot flash at the point of impact.
+  if (t < 0.18) {
+    ctx.globalAlpha = 1 - t / 0.18;
+    ctx.fillStyle = SPARK_COLORS[0];
+    const s = Math.max(1, Math.round(zoom * 1.6));
+    ctx.fillRect(Math.round(ox - s / 2), Math.round(oy - s / 2), s, s);
+  }
+  ctx.globalAlpha = 1;
+}
+
+/** Draw a tiny mug of ale (foam on top, handle on the side) at a device px origin. */
+function drawMug(ctx: CanvasRenderingContext2D, ox: number, oy: number, zoom: number): void {
+  const put = (x: number, y: number, c: string, w = 1, h = 1) => {
+    ctx.fillStyle = c;
+    ctx.fillRect(
+      Math.round(ox + x * zoom),
+      Math.round(oy + y * zoom),
+      Math.ceil(w * zoom),
+      Math.ceil(h * zoom),
+    );
+  };
+  put(0, 1, ALE_COLOR, 3, 3);
+  put(0, 0, ALE_FOAM_COLOR, 3, 1);
+  put(3, 1, MUG_HANDLE_COLOR, 1, 2);
+}
+
+/** Draw a small guitar/banjo held across the chest at a device px origin. */
+function drawGuitar(ctx: CanvasRenderingContext2D, ox: number, oy: number, zoom: number): void {
+  const put = (x: number, y: number, c: string, w = 1, h = 1) => {
+    ctx.fillStyle = c;
+    ctx.fillRect(
+      Math.round(ox + x * zoom),
+      Math.round(oy + y * zoom),
+      Math.ceil(w * zoom),
+      Math.ceil(h * zoom),
+    );
+  };
+  put(0, 3, GUITAR_BODY_COLOR, 4, 4); // body
+  put(1, 2, GUITAR_BODY_COLOR, 2, 1);
+  put(1, 7, GUITAR_BODY_COLOR, 2, 1);
+  put(1, 4, GUITAR_BODY_DARK_COLOR, 1, 1); // sound hole
+  put(4, 1, GUITAR_BODY_DARK_COLOR, 1, 3); // neck (up-right)
+  put(5, 0, GUITAR_BODY_DARK_COLOR, 1, 2); // head
+  put(0, 4, GUITAR_STRING_COLOR, 4, 1); // strings
+}
 
 // ── Render functions ────────────────────────────────────────────
 
@@ -363,6 +474,15 @@ export function renderScene(
         },
       });
     }
+    // Forge fire throws animated sparks from its hearth.
+    if (f.type === 'FORGE') {
+      const sx = fx + 16 * zoom; // forge is 32px wide — center
+      const sy = fy + 13 * zoom; // just above the fire bed
+      drawables.push({
+        zY: f.zY + 0.5,
+        draw: (c) => drawSparks(c, sx, sy, zoom, 6, 15, 4, f.x + f.y),
+      });
+    }
   }
 
   // Characters
@@ -370,11 +490,22 @@ export function renderScene(
     const sprites = getCharacterSprites(ch.palette, ch.hueShift);
     const spriteData = getCharacterSprite(ch, sprites);
     const cached = getCachedSprite(spriteData, zoom);
-    // Sitting offset: shift character down when seated so they visually sit in the chair
-    const sittingOffset = ch.state === CharacterState.TYPE ? CHARACTER_SITTING_OFFSET_PX : 0;
+    // Sitting offset: shift character down when seated (working, or drinking at a bar stool)
+    const sittingOffset =
+      ch.state === CharacterState.TYPE || ch.barState === 'drinking'
+        ? CHARACTER_SITTING_OFFSET_PX
+        : 0;
+    // Drunk sway: wobble side to side, more the drunker they are.
+    const drunk = ch.drunk ?? 0;
+    const sway = drunk > 0.05 ? Math.sin(performance.now() / 240 + ch.id) * drunk * 2 * zoom : 0;
+    // Gentle bob for busy bartenders/musicians so they look animated while idle.
+    const bob =
+      ch.isBartender || ch.isMusician
+        ? Math.round(Math.abs(Math.sin(performance.now() / 260 + ch.id)) * zoom)
+        : 0;
     // Anchor at bottom-center of character — round to integer device pixels
-    const drawX = Math.round(offsetX + ch.x * zoom - cached.width / 2);
-    const drawY = Math.round(offsetY + (ch.y + sittingOffset) * zoom - cached.height);
+    const drawX = Math.round(offsetX + ch.x * zoom - cached.width / 2 + sway);
+    const drawY = Math.round(offsetY + (ch.y + sittingOffset) * zoom - cached.height - bob);
 
     // Sort characters by bottom of their tile (not center) so they render
     // in front of same-row furniture (e.g. chairs) but behind furniture
@@ -422,6 +553,43 @@ export function renderScene(
         c.drawImage(cached, drawX, drawY);
       },
     });
+
+    // Building sparks: an actively working smith throws a burst of iron-clash
+    // sparks on each hammer downstroke (the "strike" frame), timed off the same
+    // per-character phase that drives the swing so sparks land with the hammer.
+    // Mug of ale for a seated bar drinker or a serving bartender.
+    if ((ch.socialKind === 'bar' && ch.barState === 'drinking') || ch.isBartender) {
+      const mx = offsetX + (ch.x + 3) * zoom;
+      const my = offsetY + (ch.y + sittingOffset - 8) * zoom - bob;
+      drawables.push({ zY: charZY + 0.6, draw: (c) => drawMug(c, mx, my, zoom) });
+    }
+
+    // Guitar for a musician (band).
+    if (ch.isMusician) {
+      const gx = offsetX + (ch.x - 1) * zoom;
+      const gy = offsetY + (ch.y + sittingOffset - 7) * zoom - bob;
+      drawables.push({ zY: charZY + 0.6, draw: (c) => drawGuitar(c, gx, gy, zoom) });
+    }
+
+    const building =
+      ch.isActive &&
+      ch.state === CharacterState.TYPE &&
+      !isReadingToolName(ch.currentTool) &&
+      !ch.isBartender &&
+      !ch.isMusician;
+    if (building) {
+      const { idx, frac } = hammerCycle(ch);
+      if (idx === 1) {
+        const sx = offsetX + ch.x * zoom;
+        // Emit at chest height so the desk in front doesn't cover the sparks.
+        const sy = offsetY + (ch.y + sittingOffset - 13) * zoom;
+        const progress = frac;
+        drawables.push({
+          zY: charZY + 0.5,
+          draw: (c) => drawClashSparks(c, sx, sy, zoom, progress, ch.id),
+        });
+      }
+    }
   }
 
   // ── Pets ──────────────────────────────────────────────
