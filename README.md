@@ -1,36 +1,38 @@
 <h1 align="center">
-    <a href="https://github.com/pixel-agents-hq/pixel-agents/discussions">
-        <img src="webview-ui/public/banner.png" alt="Pixel Agents">
+    <a href="https://github.com/beramm/pixel-agents-forge">
+        <img src="webview-ui/public/banner.png" alt="Pixel Agents Forge">
     </a>
 </h1>
 
 <h2 align="center" style="padding-bottom: 20px;">
-  The game interface where AI agents build real things
+  ⚒ The forge where AI agents hammer out real things
 </h2>
 
 <div align="center" style="margin-top: 25px;">
 
-[![version](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fpablodelucca%2F3cd28398fa4a2c0a636e1d51d41aee39%2Fraw%2Fversion.json)](https://github.com/pixel-agents-hq/pixel-agents/releases)
-[![npm version](https://img.shields.io/npm/v/pixel-agents)](https://www.npmjs.com/package/pixel-agents)
-[![marketplaces](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fpablodelucca%2F3cd28398fa4a2c0a636e1d51d41aee39%2Fraw%2Finstalls.json)](https://marketplace.visualstudio.com/items?itemName=pablodelucca.pixel-agents)
-[![stars](https://img.shields.io/github/stars/pixel-agents-hq/pixel-agents?logo=github&color=0183ff&style=flat)](https://github.com/pixel-agents-hq/pixel-agents/stargazers)
-[![license](https://img.shields.io/github/license/pixel-agents-hq/pixel-agents?color=0183ff&style=flat)](https://github.com/pixel-agents-hq/pixel-agents/blob/main/LICENSE)
-[![good first issues](https://img.shields.io/github/issues/pixel-agents-hq/pixel-agents/good%20first%20issue?color=7057ff&label=good%20first%20issues)](https://github.com/pixel-agents-hq/pixel-agents/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22)
+[![stars](https://img.shields.io/github/stars/beramm/pixel-agents-forge?logo=github&color=0183ff&style=flat)](https://github.com/beramm/pixel-agents-forge/stargazers)
+[![last commit](https://img.shields.io/github/last-commit/beramm/pixel-agents-forge?color=0183ff&style=flat)](https://github.com/beramm/pixel-agents-forge/commits/main)
+[![license](https://img.shields.io/github/license/beramm/pixel-agents-forge?color=0183ff&style=flat)](LICENSE)
+[![fork of pixel-agents](https://img.shields.io/badge/fork%20of-pixel--agents-7057ff?logo=github)](https://github.com/pixel-agents-hq/pixel-agents)
 
 </div>
 
 <div align="center">
-<a href="https://marketplace.visualstudio.com/items?itemName=pablodelucca.pixel-agents">🛒 VS Code Marketplace</a> • <a href="https://github.com/pixel-agents-hq/pixel-agents/discussions">💬 Discussions</a> • <a href="https://github.com/pixel-agents-hq/pixel-agents/issues">🐛 Issues</a> • <a href="CONTRIBUTING.md">🤝 Contributing</a> • <a href="CHANGELOG.md">📋 Changelog</a>
+<a href="#quick-start">⚡ Quick start</a> • <a href="https://github.com/beramm/pixel-agents-forge/issues">🐛 Issues</a> • <a href="CONTRIBUTING.md">🤝 Contributing</a> • <a href="CHANGELOG.md">📋 Changelog</a> • <a href="https://github.com/pixel-agents-hq/pixel-agents">⬆️ Upstream</a>
 </div>
 
 <br/>
 
 > ### ⚒ This is a fork
 >
-> `pixel-agents-forge` is a fork of [pixel-agents-hq/pixel-agents](https://github.com/pixel-agents-hq/pixel-agents) (MIT).
-> It reskins the office as a blacksmith **forge and tavern**: agents are smiths at the anvil, a **Work Orders**
-> board tracks who is hammering what, and the villagers heckle them between rounds at the bar.
-> Badges, marketplace links, and the npm package above point at upstream, not at this fork.
+> `pixel-agents-forge` is a fork of [pixel-agents-hq/pixel-agents](https://github.com/pixel-agents-hq/pixel-agents) (MIT),
+> which is the project that does all the heavy lifting here. This fork reskins the office as a blacksmith
+> **forge and tavern**: agents are smiths at the anvil, a **Work Orders** board tracks who is hammering what,
+> and the villagers heckle them between rounds at the bar.
+>
+> **It is not published anywhere.** The `pixel-agents` npm package and the VS Code Marketplace extension are
+> upstream's, and installing those gets you upstream's office, not this forge. Build this fork from source —
+> see [Quick start](#quick-start).
 
 ## Quick start
 
@@ -68,12 +70,12 @@ Settings modal, on top of upstream's:
 
 ---
 
-Pixel Agents turns multi-agent AI systems into something you can actually see and manage. Each agent becomes a character in a pixel art office. They walk around, sit at their desk, and visually reflect what they are doing — typing when writing code, reading when searching files, waiting when it needs your attention.
+Pixel Agents turns multi-agent AI systems into something you can actually see and manage. Each agent becomes a character in a pixel art world. They walk around, sit at their station, and visually reflect what they are doing — typing when writing code, reading when searching files, waiting when it needs your attention. In this fork that world is a **forge and tavern**, and the agents are smiths.
 
-It ships in **two flavors from the same source tree**:
+Both surfaces build **from the same source tree**, and in this fork both are built locally:
 
-- **VS Code extension** — `pablodelucca.pixel-agents` on the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=pablodelucca.pixel-agents) and [Open VSX](https://open-vsx.org/extension/pablodelucca/pixel-agents). Agents spawn into VS Code terminals; characters render in the panel area.
-- **Standalone CLI** — `npx pixel-agents` runs a local Fastify server and serves the office as a browser SPA. Useful in tmux workflows, remote sessions, or any environment without a desktop VS Code.
+- **VS Code extension** — run it from source with **F5** (Extension Development Host), or package a `.vsix` with `npm run package`. Agents spawn into VS Code terminals; characters render in the panel area.
+- **Standalone CLI** — `node dist/cli.js` runs a local Fastify server and serves the forge as a browser SPA. Useful in tmux workflows, remote sessions, or any environment without a desktop VS Code.
 
 Internally, the architecture is fully agent-agnostic and platform-agnostic: a typed `HookProvider` interface defines the integration boundary so adding a new AI tool is a single subdirectory of code. Claude Code is the reference implementation today; Codex, Gemini, Cursor, and others are on the roadmap.
 
@@ -89,6 +91,10 @@ Internally, the architecture is fully agent-agnostic and platform-agnostic: a ty
 - **Sub-agent visualization** — Task tool sub-agents spawn as separate characters linked to their parent
 - **Persistent layouts** — your office design is saved and shared across VS Code windows
 - **External asset directories** — load custom or third-party furniture packs from any folder on your machine
+- **Work Orders board** — a panel listing every smith at the anvil and the task they're hammering; click a row to select that smith
+- **A tavern that runs itself** — villagers wander in for a drink, get progressively drunk, play cards, and a band plays in the corner
+- **Ambient chatter** — NPCs heckle working smiths by name and task; rate is a slider, and `0` shuts them up
+- **Idle smiths leave** — an agent with no activity for N minutes is taken off the board and despawns, then walks back in when its session gets busy again
 - **Diverse characters** — 6 diverse characters. These are based on the amazing work of [JIK-A-4, Metro City](https://jik-a-4.itch.io/metrocity-free-topdown-character-pack).
 
 <p align="center">
@@ -106,22 +112,24 @@ Internally, the architecture is fully agent-agnostic and platform-agnostic: a ty
 
 ### VS Code extension
 
-Install Pixel Agents from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=pablodelucca.pixel-agents) or [Open VSX](https://open-vsx.org/extension/pablodelucca/pixel-agents), then open the **Pixel Agents** panel.
+Build from source (see [Install from source](#install-from-source)), then press **F5** to launch the Extension Development Host and open the **Pixel Agents** panel. `npm run package` produces an installable `.vsix`.
 
 ### Standalone CLI
 
-Run the browser-based office without cloning the repository:
+After building, run the browser-based forge:
 
 ```bash
-npx pixel-agents
+node dist/cli.js
 ```
 
-Pixel Agents chooses a free local port and prints the exact URL to open. To use a predictable port instead:
+It chooses a free local port and prints the exact URL to open. To use a predictable port instead:
 
 ```bash
-npx pixel-agents --port 3100
+node dist/cli.js --port 3100
 # Open http://127.0.0.1:3100
 ```
+
+> Upstream publishes `npx pixel-agents`, which runs **their** office. This fork is source-only.
 
 Other options:
 
@@ -140,8 +148,8 @@ Settings and layouts persist under `~/.pixel-agents/`. Stop standalone with **Ct
 ### Install from source
 
 ```bash
-git clone https://github.com/pixel-agents-hq/pixel-agents.git
-cd pixel-agents
+git clone https://github.com/beramm/pixel-agents-forge.git
+cd pixel-agents-forge
 npm install      # npm workspaces installs root + server + webview-ui in one shot
 npm run build
 ```
@@ -219,7 +227,7 @@ No modifications to Claude Code are needed — Pixel Agents is purely observatio
 Four-package monorepo, npm workspaces:
 
 - **`core/`** — TypeScript-only protocol + interfaces (AsyncAPI 3.0 contract, `HookProvider`, `MessageTransport`, `StateAdapter`). Zero runtime side effects.
-- **`server/`** — Fastify v5 (HTTP + WebSocket), Vitest. Owns `AgentRuntime`, `AgentStateStore`, `SessionRouter`, `DismissalTracker`, file watching, transcript parsing, providers. Ships the `npx pixel-agents` CLI.
+- **`server/`** — Fastify v5 (HTTP + WebSocket), Vitest. Owns `AgentRuntime`, `AgentStateStore`, `SessionRouter`, `DismissalTracker`, file watching, transcript parsing, providers. Ships the standalone CLI (`node dist/cli.js`).
 - **`adapters/vscode/`** — VS Code Extension API. Composes `core/` + `server/` for the desktop surface.
 - **`webview-ui/`** — React 19, Vite, Canvas 2D. Transport-agnostic (`PostMessageTransport` in VS Code, `WebSocketTransport` in the browser).
 
@@ -262,11 +270,13 @@ For this to work, the architecture needs to be modular at every level:
 - **Agent-agnostic**: Claude Code today, but built to support Codex, OpenCode, Gemini, Cursor, Copilot, and others through composable adapters.
 - **Theme-agnostic**: community-created assets, skins, and themes from any contributor.
 
-We're actively working on the core module and adapter architecture that makes this possible. If you're interested to talk about this further, please visit our [Discussions Section](https://github.com/pixel-agents-hq/pixel-agents/discussions).
+That roadmap belongs to upstream, and this fork tracks it. To talk about it, visit upstream's [Discussions](https://github.com/pixel-agents-hq/pixel-agents/discussions).
 
 ## Community & Contributing
 
-Use **[Issues](https://github.com/pixel-agents-hq/pixel-agents/issues)** to report bugs or request features. Join **[Discussions](https://github.com/pixel-agents-hq/pixel-agents/discussions)** for questions and conversations.
+Fork-specific bugs and ideas (the forge, tavern, Work Orders board, chatter, idle sweep) belong in **[this repo's Issues](https://github.com/beramm/pixel-agents-forge/issues)**.
+
+Anything about the underlying engine belongs upstream: **[Issues](https://github.com/pixel-agents-hq/pixel-agents/issues)** and **[Discussions](https://github.com/pixel-agents-hq/pixel-agents/discussions)**. Please report there first when the bug is not caused by this fork's changes.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for instructions on how to contribute.
 
@@ -274,7 +284,7 @@ Please read our [Code of Conduct](CODE_OF_CONDUCT.md) before participating.
 
 ## Supporting the Project
 
-If you find Pixel Agents useful, consider supporting its development:
+This fork exists because of upstream's work. If you find Pixel Agents useful, support its author:
 
 <a href="https://github.com/sponsors/pablodelucca">
   <img src="https://img.shields.io/badge/Sponsor-GitHub-ea4aaa?logo=github" alt="GitHub Sponsors">
@@ -285,8 +295,8 @@ If you find Pixel Agents useful, consider supporting its development:
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=pixel-agents-hq/pixel-agents&type=Date)](https://www.star-history.com/?repos=pixel-agents-hq%2Fpixel-agents&type=date&legend=bottom-right)
+[![Star History Chart](https://api.star-history.com/svg?repos=pixel-agents-hq/pixel-agents,beramm/pixel-agents-forge&type=Date)](https://www.star-history.com/?repos=pixel-agents-hq%2Fpixel-agents,beramm%2Fpixel-agents-forge&type=date&legend=bottom-right)
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
+This project is licensed under the [MIT License](LICENSE), inherited from [pixel-agents-hq/pixel-agents](https://github.com/pixel-agents-hq/pixel-agents). Copyright notices from upstream are retained.
