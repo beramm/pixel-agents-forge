@@ -1,6 +1,6 @@
 <h1 align="center">
     <a href="https://github.com/beramm/pixel-agents-forge">
-        <img src="webview-ui/public/banner.png" alt="Pixel Agents Forge">
+        <img src="webview-ui/public/banner.png" alt="Pixel Agents Forge" width="866">
     </a>
 </h1>
 
@@ -79,7 +79,7 @@ Both surfaces build **from the same source tree**, and in this fork both are bui
 
 Internally, the architecture is fully agent-agnostic and platform-agnostic: a typed `HookProvider` interface defines the integration boundary so adding a new AI tool is a single subdirectory of code. Claude Code is the reference implementation today; Codex, Gemini, Cursor, and others are on the roadmap.
 
-![Pixel Agents screenshot](webview-ui/public/Screenshot.jpg)
+![The forge and its tavern, with the Work Orders board tracking two smiths](webview-ui/public/screenshot.png)
 
 ## Features
 
@@ -98,7 +98,7 @@ Internally, the architecture is fully agent-agnostic and platform-agnostic: a ty
 - **Diverse characters** — 6 diverse characters. These are based on the amazing work of [JIK-A-4, Metro City](https://jik-a-4.itch.io/metrocity-free-topdown-character-pack).
 
 <p align="center">
-  <img src="webview-ui/public/characters.png" alt="Pixel Agents characters" width="320" height="72" style="image-rendering: pixelated;">
+  <img src="webview-ui/public/characters.png" alt="The forge's six villager palettes" width="424" height="128" style="image-rendering: pixelated;">
 </p>
 
 ## Requirements
